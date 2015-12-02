@@ -6,6 +6,7 @@
 #define SETTINGS_SETTINGS_H_
 
 #include <jsoncpp/json/json.h>
+#include <prim/prim.h>
 
 #include <string>
 #include <vector>
@@ -19,6 +20,8 @@ class Settings {
   static std::string toString(const Json::Value& _settings);
   static void update(Json::Value* _settings,
                      const std::vector<std::string>& _updates);
+  static void commandLine(s32 _argc, const char** _argv,
+                          Json::Value* _settings);
 };
 
 }  // namespace settings

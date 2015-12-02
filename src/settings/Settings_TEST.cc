@@ -11,24 +11,24 @@
 
 const char* JSON =
     "{\n"
-    "  \"name\": \"Nic\",\n"
-    "  \"age\": 30,\n"
-    "  \"family\": {\n"
-    "    \"wife\": {\n"
-    "      \"name\": \"Kara\",\n"
-    "      \"age\": 27\n"
-    "    },\n"
-    "    \"kids\": [\n"
-    "      {\n"
-    "      \"name\": \"Kaylee\",\n"
-    "      \"age\": 3\n"
-    "      },\n"
-    "      {\n"
-    "      \"name\": \"Ruby\",\n"
-    "      \"age\": 0\n"
+    "   \"age\" : 30,\n"
+    "   \"family\" : {\n"
+    "      \"kids\" : [\n"
+    "         {\n"
+    "            \"age\" : 3,\n"
+    "            \"name\" : \"Kaylee\"\n"
+    "         },\n"
+    "         {\n"
+    "            \"age\" : 0,\n"
+    "            \"name\" : \"Ruby\"\n"
+    "         }\n"
+    "      ],\n"
+    "      \"wife\" : {\n"
+    "         \"age\" : 27,\n"
+    "         \"name\" : \"Kara\"\n"
     "      }\n"
-    "    ]\n"
-    "  }\n"
+    "   },\n"
+    "   \"name\" : \"Nic\"\n"
     "}\n";
 
 void Settings_TEST(const Json::Value& settings) {
@@ -91,6 +91,15 @@ TEST(Settings, file) {
   assert(remove(filename) == 0);
 }
 
+TEST(Settings, toString) {
+  Json::Value settings;
+  settings::Settings::initString(JSON, &settings);
+  std::string jsonStr = settings::Settings::toString(settings);
+  // printf("%s'''\n", JSON);
+  // printf("%s'''\n", jsonStr.c_str());
+  ASSERT_EQ(jsonStr, std::string(JSON));
+}
+
 TEST(Settings, update) {
   Json::Value settings;
   settings::Settings::initString(JSON, &settings);
@@ -124,4 +133,51 @@ TEST(Settings, update) {
   ASSERT_EQ(wife["age"].asUInt(), 27u);
   ASSERT_TRUE(wife.isMember("sexy"));
   ASSERT_EQ(wife["sexy"].asBool(), true);
+}
+
+TEST(Settings, commandLine1) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON);
+  fclose(fp);
+
+  const int argc = 2;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json"
+  };
+
+  Json::Value settings;
+  settings::Settings::commandLine(argc, argv, &settings);
+
+  Settings_TEST(settings);
+
+  assert(remove(filename) == 0);
+}
+
+TEST(Settings, commandLine2) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON);
+  fclose(fp);
+
+  const int argc = 5;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "age=string=veryold",
+    "family.kids[1].name=string=Tuby",
+    "family.wife.age=int=-10"
+  };
+
+  Json::Value settings;
+  settings::Settings::commandLine(argc, argv, &settings);
+
+  ASSERT_EQ(settings["age"].asString(), "veryold");
+  ASSERT_EQ(settings["family"]["kids"][1]["name"].asString(), "Tuby");
+  ASSERT_EQ(settings["family"]["wife"]["age"].asInt(), -10);
+
+  assert(remove(filename) == 0);
 }

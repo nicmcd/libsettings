@@ -96,4 +96,22 @@ void Settings::update(Json::Value* _settings,
   }
 }
 
+void Settings::commandLine(s32 _argc, const char** _argv,
+                           Json::Value* _settings) {
+  // create a settings object
+  if (_argc < 2) {
+    fprintf(stderr, "Please specify a settings file\n");
+    exit(-1);
+  }
+  const char* settingsFile = _argv[1];
+  Settings::initFile(settingsFile, _settings);
+
+  // read in settings overwrites
+  std::vector<std::string> settingsUpdates;
+  for (s64 arg = 2; arg < _argc; arg++) {
+    settingsUpdates.push_back(std::string(_argv[arg]));
+  }
+  update(_settings, settingsUpdates);
+}
+
 }  // namespace settings

@@ -6,8 +6,8 @@ INCLUDE_BASE  := inc
 SOURCE_BASE   := src
 
 #--------------------- External Libraries -------------------------------------#
-HEADER_DIRS   :=
-STATIC_LIBS   :=
+HEADER_DIRS   := ../libprim/inc
+STATIC_LIBS   := ../libprim/bld/libprim.a
 
 #--------------------- Cpp Lint -----------------------------------------------#
 LINT          := $(HOME)/.makeccpp/cpplint/cpplint.py
