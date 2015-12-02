@@ -96,7 +96,7 @@ void Settings::update(Json::Value* _settings,
   }
 }
 
-void Settings::commandLine(s32 _argc, const char** _argv,
+void Settings::commandLine(s32 _argc, const char* const* _argv,
                            Json::Value* _settings) {
   // create a settings object
   if (_argc < 2) {

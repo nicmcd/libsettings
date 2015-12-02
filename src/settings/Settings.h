@@ -20,7 +20,7 @@ class Settings {
   static std::string toString(const Json::Value& _settings);
   static void update(Json::Value* _settings,
                      const std::vector<std::string>& _updates);
-  static void commandLine(s32 _argc, const char** _argv,
+  static void commandLine(s32 _argc, const char* const* _argv,
                           Json::Value* _settings);
 };
 
