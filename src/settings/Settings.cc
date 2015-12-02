@@ -4,7 +4,6 @@
  */
 #include "settings/Settings.h"
 
-#include <cassert>
 #include <cstdio>
 #include <fstream>  // NOLINT
 #include <sstream>
@@ -62,7 +61,7 @@ void Settings::update(Json::Value* _settings,
         (atSymLoc <= equalsLoc + 1)) {
       fprintf(stderr, "invalid setting overwrite spec: %s\n",
               overwrite.c_str());
-      assert(false);
+      exit(-1);
     }
 
     std::string pathStr = overwrite.substr(0, equalsLoc);
@@ -81,17 +80,17 @@ void Settings::update(Json::Value* _settings,
     } else if (varType == "string") {
       setting = Json::Value(valueStr);
     } else if (varType == "bool") {
-      if (valueStr == "true") {
+      if (valueStr == "true" || valueStr == "1") {
         setting = Json::Value(true);
-      } else if (valueStr == "false") {
+      } else if (valueStr == "false" || valueStr == "0") {
         setting = Json::Value(false);
       } else {
         fprintf(stderr, "invalid bool: %s\n", valueStr.c_str());
-        assert(false);
+        exit(-1);
       }
     } else {
       fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
-      assert(false);
+      exit(-1);
     }
   }
 }
