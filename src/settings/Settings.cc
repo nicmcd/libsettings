@@ -20,7 +20,7 @@ void Settings::initFile(const char* _configFile, Json::Value* _settings) {
 
   // read in the config file
   Json::Reader reader;
-  bool success = reader.parse(is, *_settings, true);
+  bool success = reader.parse(is, *_settings, false);
   is.close();
 
   if (!success) {
@@ -33,7 +33,7 @@ void Settings::initFile(const char* _configFile, Json::Value* _settings) {
 void Settings::initString(const char* _config, Json::Value* _settings) {
   // read in the config file
   Json::Reader reader;
-  bool success = reader.parse(_config, *_settings, true);
+  bool success = reader.parse(_config, *_settings, false);
 
   if (!success) {
     fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
