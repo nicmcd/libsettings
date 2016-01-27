@@ -48,6 +48,8 @@ class Settings {
                      const std::vector<std::string>& _updates);
   static void commandLine(s32 _argc, const char* const* _argv,
                           Json::Value* _settings);
+ private:
+  static void usage(const char* _exe, const char* _error);
 };
 
 }  // namespace settings

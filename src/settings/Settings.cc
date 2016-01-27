@@ -30,7 +30,10 @@
  */
 #include "settings/Settings.h"
 
+#include <cassert>
 #include <cstdio>
+#include <cstring>
+
 #include <fstream>  // NOLINT
 #include <sstream>
 
@@ -78,22 +81,22 @@ std::string Settings::toString(const Json::Value& _settings) {
 void Settings::update(Json::Value* _settings,
                       const std::vector<std::string>& _updates) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
-    const std::string& overwrite = *it;
+    const std::string& override = *it;
 
-    size_t equalsLoc = overwrite.find_first_of('=');
-    size_t atSymLoc = overwrite.find_last_of('=');
+    size_t equalsLoc = override.find_first_of('=');
+    size_t atSymLoc = override.find_last_of('=');
     if ((equalsLoc == std::string::npos) ||
         (atSymLoc == std::string::npos) ||
         (atSymLoc <= equalsLoc + 1)) {
-      fprintf(stderr, "invalid setting overwrite spec: %s\n",
-              overwrite.c_str());
+      fprintf(stderr, "invalid setting override spec: %s\n",
+              override.c_str());
       exit(-1);
     }
 
-    std::string pathStr = overwrite.substr(0, equalsLoc);
-    std::string varType = overwrite.substr(equalsLoc + 1,
-                                           atSymLoc - equalsLoc - 1);
-    std::string valueStr = overwrite.substr(atSymLoc + 1);
+    std::string pathStr = override.substr(0, equalsLoc);
+    std::string varType = override.substr(equalsLoc + 1,
+                                          atSymLoc - equalsLoc - 1);
+    std::string valueStr = override.substr(atSymLoc + 1);
 
     Json::Path path(pathStr);
     Json::Value& setting = path.make(*_settings);
@@ -123,20 +126,53 @@ void Settings::update(Json::Value* _settings,
 
 void Settings::commandLine(s32 _argc, const char* const* _argv,
                            Json::Value* _settings) {
+  assert(_argc > 0);
+
+  // scan for a -h or --help
+  for (s32 i = 1; i < _argc; i++) {
+    if ((strcmp(_argv[i], "-h") == 0) ||
+        (strcmp(_argv[i], "--help") == 0)) {
+      usage(_argv[0], nullptr);
+      exit(0);
+    }
+  }
+
   // create a settings object
   if (_argc < 2) {
-    fprintf(stderr, "Please specify a settings file\n");
+    Settings::usage(_argv[0], "Please specify a settings file\n");
     exit(-1);
   }
   const char* settingsFile = _argv[1];
   Settings::initFile(settingsFile, _settings);
 
-  // read in settings overwrites
+  // read in settings overrides
   std::vector<std::string> settingsUpdates;
   for (s64 arg = 2; arg < _argc; arg++) {
     settingsUpdates.push_back(std::string(_argv[arg]));
   }
+
+  // apply settings overrides
   update(_settings, settingsUpdates);
+}
+
+void Settings::usage(const char* _exe, const char* _error) {
+  if (_error != nullptr) {
+    printf("ERROR: %s\n", _error);
+  }
+  printf(
+      "usage:\n"
+      "  %s <file> [overrides] ...\n"
+      "\n"
+      "  file      : JSON formated settings file expressing configuration\n"
+      "              (see examples)\n"
+      "  override  : a descriptor of a settings override\n"
+      "              <path_description>=<type>=<value>\n"
+      "              type may be uint, float, string, or bool\n"
+      "              examples:\n"
+      "              this.is.a.deep.path=uint=1200\n"
+      "              important.values[3]=float=10.89\n"
+      "              stats.logfile.compress=bool=false\n"
+      "\n", _exe);
 }
 
 }  // namespace settings
