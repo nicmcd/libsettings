@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "settings/Settings.h"
+#include "settings/settings.h"
 
 #include <cassert>
 #include <cstdio>
@@ -39,7 +39,9 @@
 
 namespace settings {
 
-void Settings::initFile(const char* _configFile, Json::Value* _settings) {
+static void usage(const char* _exe, const char* _error);
+
+void initFile(const char* _configFile, Json::Value* _settings) {
   // create an ifstream for the JSON reader
   std::ifstream is(_configFile, std::ifstream::binary);
   if (!is) {
@@ -59,7 +61,7 @@ void Settings::initFile(const char* _configFile, Json::Value* _settings) {
   }
 }
 
-void Settings::initString(const char* _config, Json::Value* _settings) {
+void initString(const char* _config, Json::Value* _settings) {
   // read in the config file
   Json::Reader reader;
   bool success = reader.parse(_config, *_settings, false);
@@ -71,15 +73,15 @@ void Settings::initString(const char* _config, Json::Value* _settings) {
   }
 }
 
-std::string Settings::toString(const Json::Value& _settings) {
+std::string toString(const Json::Value& _settings) {
   Json::StyledWriter writer;
   std::stringstream ss;
   ss << writer.write(_settings);
   return ss.str();
 }
 
-void Settings::update(Json::Value* _settings,
-                      const std::vector<std::string>& _updates) {
+void update(Json::Value* _settings,
+            const std::vector<std::string>& _updates) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
     const std::string& override = *it;
 
@@ -124,8 +126,8 @@ void Settings::update(Json::Value* _settings,
   }
 }
 
-void Settings::commandLine(s32 _argc, const char* const* _argv,
-                           Json::Value* _settings) {
+void commandLine(s32 _argc, const char* const* _argv,
+                 Json::Value* _settings) {
   assert(_argc > 0);
 
   // scan for a -h or --help
@@ -139,11 +141,11 @@ void Settings::commandLine(s32 _argc, const char* const* _argv,
 
   // create a settings object
   if (_argc < 2) {
-    Settings::usage(_argv[0], "Please specify a settings file\n");
+    usage(_argv[0], "Please specify a settings file\n");
     exit(-1);
   }
   const char* settingsFile = _argv[1];
-  Settings::initFile(settingsFile, _settings);
+  initFile(settingsFile, _settings);
 
   // read in settings overrides
   std::vector<std::string> settingsUpdates;
@@ -155,7 +157,7 @@ void Settings::commandLine(s32 _argc, const char* const* _argv,
   update(_settings, settingsUpdates);
 }
 
-void Settings::usage(const char* _exe, const char* _error) {
+void usage(const char* _exe, const char* _error) {
   if (_error != nullptr) {
     printf("ERROR: %s\n", _error);
   }

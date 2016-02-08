@@ -33,7 +33,7 @@
 
 #include <string>
 
-#include "settings/Settings.h"
+#include "settings/settings.h"
 
 const char* JSON =
     "{\n"
@@ -60,7 +60,7 @@ const char* JSON =
 void Settings_TEST(const Json::Value& settings) {
   bool debug = false;
   if (debug) {
-    printf("%s\n", settings::Settings::toString(settings).c_str());
+    printf("%s\n", settings::toString(settings).c_str());
   }
 
   ASSERT_EQ(settings.size(), 3u);
@@ -97,7 +97,7 @@ void Settings_TEST(const Json::Value& settings) {
 
 TEST(Settings, string) {
   Json::Value settings;
-  settings::Settings::initString(JSON, &settings);
+  settings::initString(JSON, &settings);
 
   Settings_TEST(settings);
 }
@@ -110,7 +110,7 @@ TEST(Settings, file) {
   fclose(fp);
 
   Json::Value settings;
-  settings::Settings::initFile(filename, &settings);
+  settings::initFile(filename, &settings);
 
   Settings_TEST(settings);
 
@@ -119,8 +119,8 @@ TEST(Settings, file) {
 
 TEST(Settings, toString) {
   Json::Value settings;
-  settings::Settings::initString(JSON, &settings);
-  std::string jsonStr = settings::Settings::toString(settings);
+  settings::initString(JSON, &settings);
+  std::string jsonStr = settings::toString(settings);
   // printf("%s'''\n", JSON);
   // printf("%s'''\n", jsonStr.c_str());
   ASSERT_EQ(jsonStr, std::string(JSON));
@@ -128,14 +128,14 @@ TEST(Settings, toString) {
 
 TEST(Settings, update) {
   Json::Value settings;
-  settings::Settings::initString(JSON, &settings);
+  settings::initString(JSON, &settings);
 
   Settings_TEST(settings);
 
   std::vector<std::string> updates = {
     "family.kids[0].name=string=Krazy"
   };
-  settings::Settings::update(&settings, updates);
+  settings::update(&settings, updates);
 
   Json::Value kid0 = settings["family"]["kids"][0];
   ASSERT_EQ(kid0.size(), 2u);
@@ -151,7 +151,7 @@ TEST(Settings, update) {
   updates = {
     "family.wife.sexy=bool=true"
   };
-  settings::Settings::update(&settings, updates);
+  settings::update(&settings, updates);
 
   wife = settings["family"]["wife"];
   ASSERT_EQ(wife.size(), 3u);
@@ -175,7 +175,7 @@ TEST(Settings, commandLine1) {
   };
 
   Json::Value settings;
-  settings::Settings::commandLine(argc, argv, &settings);
+  settings::commandLine(argc, argv, &settings);
 
   Settings_TEST(settings);
 
@@ -199,7 +199,7 @@ TEST(Settings, commandLine2) {
   };
 
   Json::Value settings;
-  settings::Settings::commandLine(argc, argv, &settings);
+  settings::commandLine(argc, argv, &settings);
 
   ASSERT_EQ(settings["age"].asString(), "veryold");
   ASSERT_EQ(settings["family"]["kids"][1]["name"].asString(), "Tuby");

@@ -39,18 +39,11 @@
 
 namespace settings {
 
-class Settings {
- public:
-  static void initFile(const char* _configFile, Json::Value* _settings);
-  static void initString(const char* _config, Json::Value* _settings);
-  static std::string toString(const Json::Value& _settings);
-  static void update(Json::Value* _settings,
-                     const std::vector<std::string>& _updates);
-  static void commandLine(s32 _argc, const char* const* _argv,
-                          Json::Value* _settings);
- private:
-  static void usage(const char* _exe, const char* _error);
-};
+void initFile(const char* _configFile, Json::Value* _settings);
+void initString(const char* _config, Json::Value* _settings);
+std::string toString(const Json::Value& _settings);
+void update(Json::Value* _settings, const std::vector<std::string>& _updates);
+void commandLine(s32 _argc, const char* const* _argv, Json::Value* _settings);
 
 }  // namespace settings
 
