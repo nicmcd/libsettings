@@ -35,6 +35,7 @@
 #include <cstring>
 
 #include <fstream>  // NOLINT
+#include <queue>
 #include <sstream>
 
 namespace settings {
@@ -59,9 +60,50 @@ void initFile(const std::string& _configFile, Json::Value* _settings) {
   // read in the file contents
   std::stringstream inss;
   inss << fin.rdbuf();
+  std::string raw = inss.str();
 
-  // parse the string
-  initString(inss.str(), _settings, _configFile);
+  // parse the string into JSON
+  initString(raw, _settings, _configFile);
+
+  // perform insertion processing
+  std::queue<Json::Value*> queue;
+  queue.push(_settings);
+  while (!queue.empty()) {
+    Json::Value* parent = queue.front();
+    queue.pop();
+    for (auto it = parent->begin(); it != parent->end(); ++it) {
+      Json::Value& child = *it;
+
+      // check if an insertion is needed
+      if (child.isString()) {
+        std::string chstr = child.asString();
+        if ((chstr.size() > 6) &&
+            (chstr.substr(0, 3) == "$$(") &&
+            (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
+          // extract the subsettings filepath
+          std::string filepath = chstr.substr(3, chstr.size() - 6);
+
+          // parse the subsettings
+          Json::Value subsettings;
+          initFile(join(dir, filepath), &subsettings);
+
+          // perform insertion based on reference type
+          if (it.index() != Json::Value::UInt(-1)) {
+            // perform index insertion
+            (*parent)[it.index()] = subsettings;
+          } else {
+            // perform named member insertion
+            assert(it.name() != "");
+            (*parent)[it.name()] = subsettings;
+          }
+        }
+      }
+
+      // add item to queue
+      queue.push(&(*it));
+    }
+  }
+
   return;
 }
 

@@ -207,3 +207,39 @@ TEST(Settings, commandLine2) {
 
   assert(remove(filename) == 0);
 }
+
+TEST(Settings, subsettings) {
+  const char* afilename = "TEST_asettings.json";
+  FILE* afp = fopen(afilename, "w");
+  assert(afp != NULL);
+  fprintf(afp, "%s", "{\"sub\": \"$$(TEST_bsettings.json)$$\", \"a\": 1}");
+  fclose(afp);
+
+  const char* bfilename = "TEST_bsettings.json";
+  FILE* bfp = fopen(bfilename, "w");
+  assert(bfp != NULL);
+  fprintf(bfp, "%s", "[\"b\", false, \"$$(TEST_csettings.json)$$\", \"b\", 1]");
+  fclose(bfp);
+
+  const char* cfilename = "TEST_csettings.json";
+  FILE* cfp = fopen(cfilename, "w");
+  assert(cfp != NULL);
+  fprintf(cfp, "%s", "{\"x\":{\"y\":{\"z\":\"$$(TEST_dsettings.json)$$\"}}}");
+  fclose(cfp);
+
+  const char* dfilename = "TEST_dsettings.json";
+  FILE* dfp = fopen(dfilename, "w");
+  assert(dfp != NULL);
+  fprintf(dfp, "%s", "12345678");
+  fclose(dfp);
+
+  Json::Value settings;
+  settings::initFile(afilename, &settings);
+
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].asUInt(), 12345678u);
+
+  assert(remove(afilename) == 0);
+  assert(remove(bfilename) == 0);
+  assert(remove(cfilename) == 0);
+  assert(remove(dfilename) == 0);
+}
