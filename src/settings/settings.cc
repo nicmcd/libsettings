@@ -44,6 +44,13 @@ static void usage(const char* _exe, const char* _error);
 static std::string basename(const std::string& _path);
 static std::string dirname(const std::string& _path);
 static std::string join(const std::string& _a, const std::string& _b);
+static void processString(const std::string& _config, Json::Value* _settings,
+                          const std::string& _filename = "",
+                          const std::string& _cwd = ".");
+static void update(Json::Value* _settings,
+                   const std::vector<std::string>& _updates,
+                   const std::string& _cwd = ".");
+static void processInsertions(const std::string& cwd, Json::Value* _settings);
 
 void initFile(const std::string& _configFile, Json::Value* _settings) {
   std::string base = basename(_configFile);
@@ -63,66 +70,13 @@ void initFile(const std::string& _configFile, Json::Value* _settings) {
   std::string raw = inss.str();
 
   // parse the string into JSON
-  initString(raw, _settings, _configFile);
-
-  // perform insertion processing
-  std::queue<Json::Value*> queue;
-  queue.push(_settings);
-  while (!queue.empty()) {
-    Json::Value* parent = queue.front();
-    queue.pop();
-    for (auto it = parent->begin(); it != parent->end(); ++it) {
-      Json::Value& child = *it;
-
-      // check if an insertion is needed
-      if (child.isString()) {
-        std::string chstr = child.asString();
-        if ((chstr.size() > 6) &&
-            (chstr.substr(0, 3) == "$$(") &&
-            (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
-          // extract the subsettings filepath
-          std::string filepath = chstr.substr(3, chstr.size() - 6);
-
-          // parse the subsettings
-          Json::Value subsettings;
-          initFile(join(dir, filepath), &subsettings);
-
-          // perform insertion based on reference type
-          if (it.index() != Json::Value::UInt(-1)) {
-            // perform index insertion
-            (*parent)[it.index()] = subsettings;
-          } else {
-            // perform named member insertion
-            assert(it.name() != "");
-            (*parent)[it.name()] = subsettings;
-          }
-        }
-      }
-
-      // add item to queue
-      queue.push(&(*it));
-    }
-  }
+  processString(raw, _settings, _configFile);
 
   return;
 }
 
-void initString(const std::string& _config, Json::Value* _settings,
-                const std::string& _filename) {
-  // read in the config file
-  Json::Reader reader;
-  bool success = reader.parse(_config.c_str(), *_settings, false);
-
-  if (!success) {
-    if (_filename == "") {
-      fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
-              _config.c_str(), reader.getFormattedErrorMessages().c_str());
-    } else {
-      fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
-              _filename.c_str(), reader.getFormattedErrorMessages().c_str());
-    }
-    exit(-1);
-  }
+void initString(const std::string& _config, Json::Value* _settings) {
+  processString(_config, _settings);
 }
 
 std::string toString(const Json::Value& _settings) {
@@ -130,52 +84,6 @@ std::string toString(const Json::Value& _settings) {
   std::stringstream ss;
   ss << writer.write(_settings);
   return ss.str();
-}
-
-void update(Json::Value* _settings,
-            const std::vector<std::string>& _updates) {
-  for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
-    const std::string& override = *it;
-
-    size_t equalsLoc = override.find_first_of('=');
-    size_t atSymLoc = override.find_last_of('=');
-    if ((equalsLoc == std::string::npos) ||
-        (atSymLoc == std::string::npos) ||
-        (atSymLoc <= equalsLoc + 1)) {
-      fprintf(stderr, "invalid setting override spec: %s\n",
-              override.c_str());
-      exit(-1);
-    }
-
-    std::string pathStr = override.substr(0, equalsLoc);
-    std::string varType = override.substr(equalsLoc + 1,
-                                          atSymLoc - equalsLoc - 1);
-    std::string valueStr = override.substr(atSymLoc + 1);
-
-    Json::Path path(pathStr);
-    Json::Value& setting = path.make(*_settings);
-    if (varType == "int") {
-      setting = Json::Value(std::stoll(valueStr));
-    } else if (varType == "uint") {
-      setting = Json::Value(std::stoull(valueStr));
-    } else if (varType == "float") {
-      setting = Json::Value(std::stod(valueStr));
-    } else if (varType == "string") {
-      setting = Json::Value(valueStr);
-    } else if (varType == "bool") {
-      if (valueStr == "true" || valueStr == "1") {
-        setting = Json::Value(true);
-      } else if (valueStr == "false" || valueStr == "0") {
-        setting = Json::Value(false);
-      } else {
-        fprintf(stderr, "invalid bool: %s\n", valueStr.c_str());
-        exit(-1);
-      }
-    } else {
-      fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
-      exit(-1);
-    }
-  }
 }
 
 void commandLine(s32 _argc, const char* const* _argv,
@@ -249,6 +157,127 @@ static std::string dirname(const std::string& _path) {
 
 static std::string join(const std::string& _a, const std::string& _b) {
   return _a + '/' + _b;
+}
+
+static void processString(const std::string& _config, Json::Value* _settings,
+                          const std::string& _filename,
+                          const std::string& _cwd) {
+  // parse the JSON string
+  Json::Reader reader;
+  bool success = reader.parse(_config.c_str(), *_settings, false);
+
+  // if unsuccessful, report it
+  if (!success) {
+    if (_filename == "") {
+      fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
+              _config.c_str(), reader.getFormattedErrorMessages().c_str());
+    } else {
+      fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
+              _filename.c_str(), reader.getFormattedErrorMessages().c_str());
+    }
+    exit(-1);
+  }
+
+  // perform insertion processing
+  processInsertions(_cwd, _settings);
+}
+
+static void update(Json::Value* _settings,
+                   const std::vector<std::string>& _updates,
+                   const std::string& _cwd) {
+  for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
+    // get the override string
+    const std::string& override = *it;
+
+    // split the override string into symbols
+    size_t equalsLoc = override.find_first_of('=');
+    size_t atSymLoc = override.find_last_of('=');
+    if ((equalsLoc == std::string::npos) ||
+        (atSymLoc == std::string::npos) ||
+        (atSymLoc <= equalsLoc + 1)) {
+      fprintf(stderr, "invalid setting override spec: %s\n",
+              override.c_str());
+      exit(-1);
+    }
+
+    std::string pathStr = override.substr(0, equalsLoc);
+    std::string varType = override.substr(equalsLoc + 1,
+                                          atSymLoc - equalsLoc - 1);
+    std::string valueStr = override.substr(atSymLoc + 1);
+
+    // use the path to find the location and make updates
+    Json::Path path(pathStr);
+    Json::Value& setting = path.make(*_settings);
+    if (varType == "int") {
+      setting = Json::Value(std::stoll(valueStr));
+    } else if (varType == "uint") {
+      setting = Json::Value(std::stoull(valueStr));
+    } else if (varType == "float") {
+      setting = Json::Value(std::stod(valueStr));
+    } else if (varType == "string") {
+      setting = Json::Value(valueStr);
+    } else if (varType == "bool") {
+      if (valueStr == "true" || valueStr == "1") {
+        setting = Json::Value(true);
+      } else if (valueStr == "false" || valueStr == "0") {
+        setting = Json::Value(false);
+      } else {
+        fprintf(stderr, "invalid bool: %s\n", valueStr.c_str());
+        exit(-1);
+      }
+    } else if (varType == "file") {
+      Json::Value subsettings;
+      initFile(valueStr, &subsettings);
+      setting = subsettings;
+    } else {
+      fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
+      exit(-1);
+    }
+
+    // perform insertion processing
+    processInsertions(_cwd, _settings);
+  }
+}
+
+static void processInsertions(const std::string& cwd, Json::Value* _settings) {
+  // perform insertion processing
+  std::queue<Json::Value*> queue;
+  queue.push(_settings);
+  while (!queue.empty()) {
+    Json::Value* parent = queue.front();
+    queue.pop();
+    for (auto it = parent->begin(); it != parent->end(); ++it) {
+      Json::Value& child = *it;
+
+      // check if an insertion is needed
+      if (child.isString()) {
+        std::string chstr = child.asString();
+        if ((chstr.size() > 6) &&
+            (chstr.substr(0, 3) == "$$(") &&
+            (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
+          // extract the subsettings filepath
+          std::string filepath = chstr.substr(3, chstr.size() - 6);
+
+          // parse the subsettings
+          Json::Value subsettings;
+          initFile(join(cwd, filepath), &subsettings);
+
+          // perform insertion based on reference type
+          if (it.index() != Json::Value::UInt(-1)) {
+            // perform index insertion
+            (*parent)[it.index()] = subsettings;
+          } else {
+            // perform named member insertion
+            assert(it.name() != "");
+            (*parent)[it.name()] = subsettings;
+          }
+        }
+      }
+
+      // add item to queue
+      queue.push(&(*it));
+    }
+  }
 }
 
 }  // namespace settings

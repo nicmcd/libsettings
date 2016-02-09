@@ -40,10 +40,8 @@
 namespace settings {
 
 void initFile(const std::string& _configFile, Json::Value* _settings);
-void initString(const std::string& _config, Json::Value* _settings,
-                const std::string& _filename = "");
+void initString(const std::string& _config, Json::Value* _settings);
 std::string toString(const Json::Value& _settings);
-void update(Json::Value* _settings, const std::vector<std::string>& _updates);
 void commandLine(s32 _argc, const char* const* _argv, Json::Value* _settings);
 
 }  // namespace settings

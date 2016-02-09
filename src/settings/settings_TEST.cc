@@ -126,34 +126,32 @@ TEST(Settings, toString) {
   ASSERT_EQ(jsonStr, std::string(JSON));
 }
 
-TEST(Settings, update) {
-  Json::Value settings;
-  settings::initString(JSON, &settings);
+TEST(Settings, commandLine1) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON);
+  fclose(fp);
 
-  Settings_TEST(settings);
-
-  std::vector<std::string> updates = {
-    "family.kids[0].name=string=Krazy"
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "family.kids[0].name=string=Krazy",
+    "family.wife.sexy=bool=true"
   };
-  settings::update(&settings, updates);
 
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  // override #1
   Json::Value kid0 = settings["family"]["kids"][0];
   ASSERT_EQ(kid0.size(), 2u);
   ASSERT_EQ(kid0["name"].asString(), "Krazy");
   ASSERT_EQ(kid0["age"].asUInt(), 3u);
 
+  // override #2
   Json::Value wife = settings["family"]["wife"];
-  ASSERT_EQ(wife.size(), 2u);
-  ASSERT_EQ(wife["name"].asString(), "Kara");
-  ASSERT_EQ(wife["age"].asUInt(), 27u);
-  ASSERT_FALSE(wife.isMember("sexy"));
-
-  updates = {
-    "family.wife.sexy=bool=true"
-  };
-  settings::update(&settings, updates);
-
-  wife = settings["family"]["wife"];
   ASSERT_EQ(wife.size(), 3u);
   ASSERT_EQ(wife["name"].asString(), "Kara");
   ASSERT_EQ(wife["age"].asUInt(), 27u);
@@ -161,7 +159,7 @@ TEST(Settings, update) {
   ASSERT_EQ(wife["sexy"].asBool(), true);
 }
 
-TEST(Settings, commandLine1) {
+TEST(Settings, commandLine2) {
   const char* filename = "TEST_settings.json";
   FILE* fp = fopen(filename, "w");
   assert(fp != NULL);
@@ -182,7 +180,7 @@ TEST(Settings, commandLine1) {
   assert(remove(filename) == 0);
 }
 
-TEST(Settings, commandLine2) {
+TEST(Settings, commandLine3) {
   const char* filename = "TEST_settings.json";
   FILE* fp = fopen(filename, "w");
   assert(fp != NULL);
@@ -208,7 +206,7 @@ TEST(Settings, commandLine2) {
   assert(remove(filename) == 0);
 }
 
-TEST(Settings, subsettings) {
+TEST(Settings, subsettings_initFile) {
   const char* afilename = "TEST_asettings.json";
   FILE* afp = fopen(afilename, "w");
   assert(afp != NULL);
@@ -242,4 +240,64 @@ TEST(Settings, subsettings) {
   assert(remove(bfilename) == 0);
   assert(remove(cfilename) == 0);
   assert(remove(dfilename) == 0);
+}
+
+TEST(Settings, subsettings_commandLine) {
+  const char* afilename = "TEST_asettings.json";
+  FILE* afp = fopen(afilename, "w");
+  assert(afp != NULL);
+  fprintf(afp, "%s", "{\"sub\": \"$$(TEST_bsettings.json)$$\", \"a\": 1}");
+  fclose(afp);
+
+  const char* bfilename = "TEST_bsettings.json";
+  FILE* bfp = fopen(bfilename, "w");
+  assert(bfp != NULL);
+  fprintf(bfp, "%s", "[\"b\", false, \"$$(TEST_csettings.json)$$\", \"b\", 1]");
+  fclose(bfp);
+
+  const char* cfilename = "TEST_csettings.json";
+  FILE* cfp = fopen(cfilename, "w");
+  assert(cfp != NULL);
+  fprintf(cfp, "%s", "{\"x\":{\"y\":{\"z\":\"$$(TEST_dsettings.json)$$\"}}}");
+  fclose(cfp);
+
+  const char* dfilename = "TEST_dsettings.json";
+  FILE* dfp = fopen(dfilename, "w");
+  assert(dfp != NULL);
+  fprintf(dfp, "%s", "12345678");
+  fclose(dfp);
+
+  const char* efilename = "TEST_esettings.json";
+  FILE* efp = fopen(efilename, "w");
+  assert(efp != NULL);
+  fprintf(efp, "%s", "{\"n\": \"$$(TEST_fsettings.json)$$\"}");
+  fclose(efp);
+
+  const char* ffilename = "TEST_fsettings.json";
+  FILE* ffp = fopen(ffilename, "w");
+  assert(ffp != NULL);
+  fprintf(ffp, "%s", "3.14159265359");
+  fclose(ffp);
+
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_asettings.json",
+    "toplevel=string=wahoo",
+    "sub[2].x.y.m=file=TEST_esettings.json"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].asUInt(), 12345678u);
+  ASSERT_EQ(settings["toplevel"].asString(), "wahoo");
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["m"]["n"].asDouble(), 3.14159265359);
+
+  assert(remove(afilename) == 0);
+  assert(remove(bfilename) == 0);
+  assert(remove(cfilename) == 0);
+  assert(remove(dfilename) == 0);
+  assert(remove(efilename) == 0);
+  assert(remove(ffilename) == 0);
 }
