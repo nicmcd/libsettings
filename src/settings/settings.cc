@@ -47,9 +47,9 @@ static std::string join(const std::string& _a, const std::string& _b);
 static void processString(const std::string& _config, Json::Value* _settings,
                           const std::string& _filename = "",
                           const std::string& _cwd = ".");
-static void update(Json::Value* _settings,
-                   const std::vector<std::string>& _updates,
-                   const std::string& _cwd = ".");
+static void applyUpdates(Json::Value* _settings,
+                         const std::vector<std::string>& _updates,
+                         const std::string& _cwd = ".");
 static void processInsertions(const std::string& cwd, Json::Value* _settings);
 
 void initFile(const std::string& _configFile, Json::Value* _settings) {
@@ -70,7 +70,7 @@ void initFile(const std::string& _configFile, Json::Value* _settings) {
   std::string raw = inss.str();
 
   // parse the string into JSON
-  processString(raw, _settings, _configFile);
+  processString(raw, _settings, _configFile, dir);
 
   return;
 }
@@ -105,6 +105,7 @@ void commandLine(s32 _argc, const char* const* _argv,
     exit(-1);
   }
   std::string settingsFile = _argv[1];
+  std::string dir = dirname(settingsFile);
   initFile(settingsFile, _settings);
 
   // read in settings overrides
@@ -114,7 +115,7 @@ void commandLine(s32 _argc, const char* const* _argv,
   }
 
   // apply settings overrides
-  update(_settings, settingsUpdates);
+  applyUpdates(_settings, settingsUpdates, dir);
 }
 
 void usage(const char* _exe, const char* _error) {
@@ -182,9 +183,9 @@ static void processString(const std::string& _config, Json::Value* _settings,
   processInsertions(_cwd, _settings);
 }
 
-static void update(Json::Value* _settings,
-                   const std::vector<std::string>& _updates,
-                   const std::string& _cwd) {
+static void applyUpdates(Json::Value* _settings,
+                         const std::vector<std::string>& _updates,
+                         const std::string& _cwd) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
     // get the override string
     const std::string& override = *it;
