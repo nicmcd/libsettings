@@ -40,35 +40,45 @@
 namespace settings {
 
 static void usage(const char* _exe, const char* _error);
+static std::string basename(const std::string& _path);
+static std::string dirname(const std::string& _path);
+static std::string join(const std::string& _a, const std::string& _b);
 
-void initFile(const char* _configFile, Json::Value* _settings) {
-  // create an ifstream for the JSON reader
-  std::ifstream is(_configFile, std::ifstream::binary);
-  if (!is) {
-    fprintf(stderr, "Settings error: could not open file '%s'\n", _configFile);
+void initFile(const std::string& _configFile, Json::Value* _settings) {
+  std::string base = basename(_configFile);
+  std::string dir = dirname(_configFile);
+
+  // open a file stream
+  std::ifstream fin(_configFile);
+  if (!fin) {
+    fprintf(stderr, "Settings error: could not open file '%s'\n",
+            _configFile.c_str());
     exit(-1);
   }
 
-  // read in the config file
-  Json::Reader reader;
-  bool success = reader.parse(is, *_settings, false);
-  is.close();
+  // read in the file contents
+  std::stringstream inss;
+  inss << fin.rdbuf();
 
-  if (!success) {
-    fprintf(stderr, "Settings error: failed to parse JSON file '%s'\n%s\n",
-            _configFile, reader.getFormattedErrorMessages().c_str());
-    exit(-1);
-  }
+  // parse the string
+  initString(inss.str(), _settings, _configFile);
+  return;
 }
 
-void initString(const char* _config, Json::Value* _settings) {
+void initString(const std::string& _config, Json::Value* _settings,
+                const std::string& _filename) {
   // read in the config file
   Json::Reader reader;
-  bool success = reader.parse(_config, *_settings, false);
+  bool success = reader.parse(_config.c_str(), *_settings, false);
 
   if (!success) {
-    fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
-            _config, reader.getFormattedErrorMessages().c_str());
+    if (_filename == "") {
+      fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
+              _config.c_str(), reader.getFormattedErrorMessages().c_str());
+    } else {
+      fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
+              _filename.c_str(), reader.getFormattedErrorMessages().c_str());
+    }
     exit(-1);
   }
 }
@@ -144,7 +154,7 @@ void commandLine(s32 _argc, const char* const* _argv,
     usage(_argv[0], "Please specify a settings file\n");
     exit(-1);
   }
-  const char* settingsFile = _argv[1];
+  std::string settingsFile = _argv[1];
   initFile(settingsFile, _settings);
 
   // read in settings overrides
@@ -175,6 +185,28 @@ void usage(const char* _exe, const char* _error) {
       "              important.values[3]=float=10.89\n"
       "              stats.logfile.compress=bool=false\n"
       "\n", _exe);
+}
+
+static std::string basename(const std::string& _path) {
+  size_t idx = _path.find_last_of('/');
+  if (idx == std::string::npos) {
+    return _path;
+  } else {
+    return _path.substr(idx + 1);
+  }
+}
+
+static std::string dirname(const std::string& _path) {
+  size_t idx = _path.find_last_of('/');
+  if (idx == std::string::npos) {
+    return ".";
+  } else {
+    return _path.substr(0, idx + 1);
+  }
+}
+
+static std::string join(const std::string& _a, const std::string& _b) {
+  return _a + '/' + _b;
 }
 
 }  // namespace settings

@@ -39,8 +39,9 @@
 
 namespace settings {
 
-void initFile(const char* _configFile, Json::Value* _settings);
-void initString(const char* _config, Json::Value* _settings);
+void initFile(const std::string& _configFile, Json::Value* _settings);
+void initString(const std::string& _config, Json::Value* _settings,
+                const std::string& _filename = "");
 std::string toString(const Json::Value& _settings);
 void update(Json::Value* _settings, const std::vector<std::string>& _updates);
 void commandLine(s32 _argc, const char* const* _argv, Json::Value* _settings);
