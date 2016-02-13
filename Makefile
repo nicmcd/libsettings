@@ -6,8 +6,12 @@ INCLUDE_BASE  := inc
 SOURCE_BASE   := src
 
 #--------------------- External Libraries -------------------------------------#
-HEADER_DIRS   := ../libprim/inc
-STATIC_LIBS   := ../libprim/bld/libprim.a
+HEADER_DIRS   := \
+	../libprim/inc \
+	../libjson/inc
+STATIC_LIBS   := \
+	../libprim/bld/libprim.a \
+	../libjson/bld/libjson.a \
 
 #--------------------- Cpp Lint -----------------------------------------------#
 LINT          := $(HOME)/.makeccpp/cpplint/cpplint.py
@@ -24,7 +28,7 @@ SRC_EXTS      := .cc
 HDR_EXTS      := .h .tcc
 CXX_FLAGS     := -Wall -Wextra -pedantic -Wfatal-errors -std=c++11
 CXX_FLAGS     += -march=native -g -O3 -flto
-LINK_FLAGS    := -ljsoncpp
+LINK_FLAGS    :=
 
 #--------------------- Auto Makefile ------------------------------------------#
 include ~/.makeccpp/auto_lib.mk

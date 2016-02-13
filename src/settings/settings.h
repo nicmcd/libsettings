@@ -31,7 +31,7 @@
 #ifndef SETTINGS_SETTINGS_H_
 #define SETTINGS_SETTINGS_H_
 
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #include <prim/prim.h>
 
 #include <string>
