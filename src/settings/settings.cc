@@ -230,6 +230,10 @@ static void applyUpdates(Json::Value* _settings,
       Json::Value subsettings;
       initFile(valueStr, &subsettings);
       setting = subsettings;
+    } else if (varType == "ref") {
+      Json::Path path(valueStr);
+      Json::Value& srcSetting = path.make(*_settings);
+      setting = srcSetting;
     } else {
       fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
       exit(-1);
@@ -241,7 +245,7 @@ static void applyUpdates(Json::Value* _settings,
 }
 
 static void processInsertions(const std::string& cwd, Json::Value* _settings) {
-  // perform insertion processing
+  // perform insertion processing via BFS
   std::queue<Json::Value*> queue;
   queue.push(_settings);
   while (!queue.empty()) {
@@ -271,6 +275,25 @@ static void processInsertions(const std::string& cwd, Json::Value* _settings) {
             // perform named member insertion
             assert(it.name() != "");
             (*parent)[it.name()] = subsettings;
+          }
+        } else if ((chstr.size() > 6) &&
+                   (chstr.substr(0, 3) == "$&(") &&
+                   (chstr.substr(chstr.size() - 3, 3) == ")&$")) {
+          // extract the settings path
+          std::string pathStr = chstr.substr(3, chstr.size() - 6);
+          Json::Path path(pathStr);
+
+          // get a reference to the settings that need copied
+          Json::Value& setting = path.make(*_settings);
+
+          // perform insertion based on reference type
+          if (it.index() != Json::Value::UInt(-1)) {
+            // perform index insertion
+            (*parent)[it.index()] = setting;
+          } else {
+            // perform named member insertion
+            assert(it.name() != "");
+            (*parent)[it.name()] = setting;
           }
         }
       }

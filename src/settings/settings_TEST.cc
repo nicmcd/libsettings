@@ -42,16 +42,16 @@ const char* JSON =
     "      \"kids\" : [\n"
     "         {\n"
     "            \"age\" : 3,\n"
-    "            \"name\" : \"Kaylee\"\n"
+    "            \"name\" : \"Gertrude\"\n"
     "         },\n"
     "         {\n"
     "            \"age\" : 0,\n"
-    "            \"name\" : \"Ruby\"\n"
+    "            \"name\" : \"Mildrid\"\n"
     "         }\n"
     "      ],\n"
     "      \"wife\" : {\n"
     "         \"age\" : 27,\n"
-    "         \"name\" : \"Kara\"\n"
+    "         \"name\" : \"Pamela\"\n"
     "      }\n"
     "   },\n"
     "   \"name\" : \"Nic\"\n"
@@ -78,7 +78,7 @@ void Settings_TEST(const Json::Value& settings) {
 
   Json::Value wife = family["wife"];
   ASSERT_EQ(wife.size(), 2u);
-  ASSERT_EQ(wife["name"].asString(), "Kara");
+  ASSERT_EQ(wife["name"].asString(), "Pamela");
   ASSERT_EQ(wife["age"].asUInt(), 27u);
 
   Json::Value kids = family["kids"];
@@ -86,12 +86,12 @@ void Settings_TEST(const Json::Value& settings) {
 
   Json::Value kid0 = kids[0];
   ASSERT_EQ(kid0.size(), 2u);
-  ASSERT_EQ(kid0["name"].asString(), "Kaylee");
+  ASSERT_EQ(kid0["name"].asString(), "Gertrude");
   ASSERT_EQ(kid0["age"].asUInt(), 3u);
 
   Json::Value kid1 = kids[1];
   ASSERT_EQ(kid1.size(), 2u);
-  ASSERT_EQ(kid1["name"].asString(), "Ruby");
+  ASSERT_EQ(kid1["name"].asString(), "Mildrid");
   ASSERT_EQ(kid1["age"].asUInt(), 0u);
 }
 
@@ -153,10 +153,12 @@ TEST(Settings, commandLine1) {
   // override #2
   Json::Value wife = settings["family"]["wife"];
   ASSERT_EQ(wife.size(), 3u);
-  ASSERT_EQ(wife["name"].asString(), "Kara");
+  ASSERT_EQ(wife["name"].asString(), "Pamela");
   ASSERT_EQ(wife["age"].asUInt(), 27u);
   ASSERT_TRUE(wife.isMember("sexy"));
   ASSERT_EQ(wife["sexy"].asBool(), true);
+
+  assert(remove(filename) == 0);
 }
 
 TEST(Settings, commandLine2) {
@@ -206,7 +208,7 @@ TEST(Settings, commandLine3) {
   assert(remove(filename) == 0);
 }
 
-TEST(Settings, subsettings_initFile) {
+TEST(Settings, subsettingsInitFile) {
   const char* afilename = "TEST_asettings.json";
   FILE* afp = fopen(afilename, "w");
   assert(afp != NULL);
@@ -242,7 +244,7 @@ TEST(Settings, subsettings_initFile) {
   assert(remove(dfilename) == 0);
 }
 
-TEST(Settings, subsettings_initString) {
+TEST(Settings, subsettingsInitString) {
   const char* afilename = "TEST_asettings.json";
   FILE* afp = fopen(afilename, "w");
   assert(afp != NULL);
@@ -278,7 +280,7 @@ TEST(Settings, subsettings_initString) {
   assert(remove(dfilename) == 0);
 }
 
-TEST(Settings, subsettings_commandLine) {
+TEST(Settings, subsettingsCommandLine) {
   const char* afilename = "TEST_asettings.json";
   FILE* afp = fopen(afilename, "w");
   assert(afp != NULL);
@@ -336,4 +338,129 @@ TEST(Settings, subsettings_commandLine) {
   assert(remove(dfilename) == 0);
   assert(remove(efilename) == 0);
   assert(remove(ffilename) == 0);
+}
+
+TEST(Settings, referenceCommandline) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON);
+  fclose(fp);
+
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "family.kids[0].name=ref=family.kids[1].name",
+    "copyofname=ref=name"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  // override #1
+  Json::Value kid0 = settings["family"]["kids"][0];
+  ASSERT_EQ(kid0.size(), 2u);
+  ASSERT_EQ(kid0["name"].asString(), "Mildrid");
+  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+
+  // override #2
+  ASSERT_EQ(settings["copyofname"], settings["name"]);
+  ASSERT_EQ(settings["copyofname"].asString(), "Nic");
+
+  assert(remove(filename) == 0);
+}
+
+const char* JSON2 =
+    "{\n"
+    "   \"age\" : 30,\n"
+    "   \"family\" : {\n"
+    "      \"kids\" : [\n"
+    "         {\n"
+    "            \"age\" : 3,\n"
+    "            \"name\" : \"$&(family.kids[1].name)&$\"\n"
+    "         },\n"
+    "         {\n"
+    "            \"age\" : 0,\n"
+    "            \"name\" : \"Mildrid\"\n"
+    "         }\n"
+    "      ],\n"
+    "      \"wife\" : {\n"
+    "         \"age\" : 27,\n"
+    "         \"name\" : \"Pamela\"\n"
+    "      }\n"
+    "   },\n"
+    "   \"name\" : \"Nic\"\n,"
+    "   \"copyofname\" : \"$&(name)&$\"\n"
+    "}\n";
+
+TEST(Settings, referenceInfile) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON2);
+  fclose(fp);
+
+  const int argc = 2;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  // override #1
+  Json::Value kid0 = settings["family"]["kids"][0];
+  ASSERT_EQ(kid0.size(), 2u);
+  ASSERT_EQ(kid0["name"].asString(), "Mildrid");
+  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+
+  // override #2
+  ASSERT_EQ(settings["copyofname"], settings["name"]);
+  ASSERT_EQ(settings["copyofname"].asString(), "Nic");
+
+  assert(remove(filename) == 0);
+}
+
+const char* JSON3 =
+    "{\n"
+    "   \"age\" : 30,\n"
+    "   \"blah\" : {\n"
+    "     \"words\": \"$&(names)&$\"\n"
+    "   },\n"
+    "   \"names\" : [\"You\", \"$&(age)&$\", \"Them\"]\n"
+    "}\n";
+
+TEST(Settings, referenceTricky) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON3);
+  fclose(fp);
+
+  const int argc = 3;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "names[3]=int=987"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  ASSERT_EQ(settings.size(), 3u);
+  ASSERT_EQ(settings["blah"].size(), 1u);
+  ASSERT_EQ(settings["blah"]["words"].size(), 3u);
+  ASSERT_TRUE(settings["blah"]["words"].isArray());
+  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
+  ASSERT_EQ(settings["blah"]["words"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"].size(), 4u);
+  ASSERT_EQ(settings["names"][0].asString(), "You");
+  ASSERT_EQ(settings["names"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["names"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"][3].asInt(), 987);
+
+  assert(remove(filename) == 0);
 }
