@@ -464,3 +464,149 @@ TEST(Settings, referenceTricky) {
 
   assert(remove(filename) == 0);
 }
+
+TEST(Settings, commandlineArraySimple) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON);
+  fclose(fp);
+
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "age=string=[very,old]",
+    "family.wife.age=int=[-10]"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  ASSERT_TRUE(settings["age"].isArray());
+  ASSERT_EQ(settings["age"].size(), 2u);
+  ASSERT_EQ(settings["age"][0].asString(), "very");
+  ASSERT_EQ(settings["age"][1].asString(), "old");
+
+  ASSERT_TRUE(settings["family"]["wife"]["age"].isArray());
+  ASSERT_EQ(settings["family"]["wife"]["age"].size(), 1u);
+  ASSERT_EQ(settings["family"]["wife"]["age"][0].asInt(), -10);
+
+  assert(remove(filename) == 0);
+}
+
+TEST(Settings, commandlineArrayWithTrickyReference) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON3);
+  fclose(fp);
+
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "names[3]=int=987",
+    "age=ref=[names,blah.words]"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  ASSERT_EQ(settings.size(), 3u);
+  ASSERT_EQ(settings["blah"].size(), 1u);
+  ASSERT_EQ(settings["blah"]["words"].size(), 3u);
+  ASSERT_TRUE(settings["blah"]["words"].isArray());
+  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
+  ASSERT_EQ(settings["blah"]["words"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"].size(), 4u);
+  ASSERT_EQ(settings["names"][0].asString(), "You");
+  ASSERT_EQ(settings["names"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["names"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"][3].asInt(), 987);
+
+  ASSERT_TRUE(settings["age"].isArray());
+  ASSERT_EQ(settings["age"].size(), 2u);
+  ASSERT_TRUE(settings["age"][0].isArray());
+  ASSERT_EQ(settings["age"][0].size(), 4u);
+  ASSERT_EQ(settings["age"][0][0].asString(), "You");
+  ASSERT_EQ(settings["age"][0][1].asUInt(), 30u);
+  ASSERT_EQ(settings["age"][0][2].asString(), "Them");
+  ASSERT_EQ(settings["age"][0][3].asInt(), 987);
+  ASSERT_TRUE(settings["age"][1].isArray());
+  ASSERT_EQ(settings["age"][1].size(), 3u);
+  ASSERT_EQ(settings["age"][1][0].asString(), "You");
+  ASSERT_EQ(settings["age"][1][1].asUInt(), 30u);
+  ASSERT_EQ(settings["age"][1][2].asString(), "Them");
+
+  assert(remove(filename) == 0);
+}
+
+TEST(Settings, commandlineArrayWithTrickyFiles) {
+  const char* filename = "TEST_settings.json";
+  FILE* fp = fopen(filename, "w");
+  assert(fp != NULL);
+  fprintf(fp, "%s", JSON3);
+  fclose(fp);
+
+  const char* afilename = "TEST_asettings.json";
+  FILE* afp = fopen(afilename, "w");
+  assert(afp != NULL);
+  fprintf(afp, "%s", "{\"sub\": \"$$(TEST_bsettings.json)$$\", \"a\": 1}");
+  fclose(afp);
+
+  const char* bfilename = "TEST_bsettings.json";
+  FILE* bfp = fopen(bfilename, "w");
+  assert(bfp != NULL);
+  fprintf(bfp, "%s", "[\"b\", false, 12345678, \"b\", 1]");
+  fclose(bfp);
+
+  const int argc = 4;
+  const char* argv[argc] = {
+    "./path/to/some/binary",
+    "TEST_settings.json",
+    "names[3]=int=987",
+    "age=file=[TEST_asettings.json,TEST_bsettings.json]"
+  };
+
+  Json::Value settings;
+  settings::commandLine(argc, argv, &settings);
+
+  ASSERT_EQ(settings.size(), 3u);
+  ASSERT_EQ(settings["blah"].size(), 1u);
+  ASSERT_EQ(settings["blah"]["words"].size(), 3u);
+  ASSERT_TRUE(settings["blah"]["words"].isArray());
+  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
+  ASSERT_EQ(settings["blah"]["words"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"].size(), 4u);
+  ASSERT_EQ(settings["names"][0].asString(), "You");
+  ASSERT_EQ(settings["names"][1].asUInt(), 30u);
+  ASSERT_EQ(settings["names"][2].asString(), "Them");
+  ASSERT_EQ(settings["names"][3].asInt(), 987);
+
+  ASSERT_TRUE(settings["age"].isArray());
+  ASSERT_EQ(settings["age"].size(), 2u);
+  ASSERT_FALSE(settings["age"][0].isArray());
+  ASSERT_EQ(settings["age"][0].size(), 2u);
+  ASSERT_EQ(settings["age"][0]["a"].asUInt(), 1u);
+  ASSERT_TRUE(settings["age"][0]["sub"].isArray());
+  ASSERT_EQ(settings["age"][0]["sub"].size(), 5u);
+  ASSERT_EQ(settings["age"][0]["sub"][0].asString(), "b");
+  ASSERT_EQ(settings["age"][0]["sub"][1].asBool(), false);
+  ASSERT_EQ(settings["age"][0]["sub"][2].asInt(), 12345678);
+  ASSERT_EQ(settings["age"][0]["sub"][3].asString(), "b");
+  ASSERT_EQ(settings["age"][0]["sub"][4].asUInt(), 1u);
+  ASSERT_TRUE(settings["age"][1].isArray());
+  ASSERT_EQ(settings["age"][1].size(), 5u);
+  ASSERT_EQ(settings["age"][1][0].asString(), "b");
+  ASSERT_EQ(settings["age"][1][1].asBool(), false);
+  ASSERT_EQ(settings["age"][1][2].asInt(), 12345678);
+  ASSERT_EQ(settings["age"][1][3].asString(), "b");
+  ASSERT_EQ(settings["age"][1][4].asUInt(), 1u);
+
+  assert(remove(filename) == 0);
+  assert(remove(afilename) == 0);
+  assert(remove(bfilename) == 0);
+}

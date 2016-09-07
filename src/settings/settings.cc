@@ -30,6 +30,8 @@
  */
 #include "settings/settings.h"
 
+#include <strop/strop.h>
+
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -206,37 +208,62 @@ static void applyUpdates(Json::Value* _settings,
                                           atSymLoc - equalsLoc - 1);
     std::string valueStr = override.substr(atSymLoc + 1);
 
-    // use the path to find the location and make updates
-    Json::Path path(pathStr);
-    Json::Value& setting = path.make(*_settings);
-    if (varType == "int") {
-      setting = Json::Value(std::stoll(valueStr));
-    } else if (varType == "uint") {
-      setting = Json::Value(std::stoull(valueStr));
-    } else if (varType == "float") {
-      setting = Json::Value(std::stod(valueStr));
-    } else if (varType == "string") {
-      setting = Json::Value(valueStr);
-    } else if (varType == "bool") {
-      if (valueStr == "true" || valueStr == "1") {
-        setting = Json::Value(true);
-      } else if (valueStr == "false" || valueStr == "0") {
-        setting = Json::Value(false);
+    // determine if the value is an array type
+    bool isArray = ((valueStr.at(0) == '[') &&
+                    (valueStr.at(valueStr.size() - 1) == ']'));
+    std::vector<std::string> valueElems;
+    if (!isArray) {
+      // just put the full value in the array
+      valueElems.push_back(valueStr);
+    } else {
+      // remove the [] if this is an array
+      valueStr = valueStr.substr(1, valueStr.size() - 2);
+      valueElems = strop::split(valueStr, ',');
+    }
+
+    // convert all strings to a Json::Value array
+    Json::Value array(Json::ValueType::arrayValue);
+    array.resize(valueElems.size());
+    for (u32 idx = 0; idx < valueElems.size(); idx++) {
+      if (varType == "int") {
+        array[idx] = Json::Value(std::stoll(valueElems[idx]));
+      } else if (varType == "uint") {
+        array[idx] = Json::Value(std::stoull(valueElems[idx]));
+      } else if (varType == "float") {
+        array[idx] = Json::Value(std::stod(valueElems[idx]));
+      } else if (varType == "string") {
+        array[idx] = Json::Value(valueElems[idx]);
+      } else if (varType == "bool") {
+        if (valueElems[idx] == "true" || valueElems[idx] == "1") {
+          array[idx] = Json::Value(true);
+        } else if (valueElems[idx] == "false" || valueElems[idx] == "0") {
+          array[idx] = Json::Value(false);
+        } else {
+          fprintf(stderr, "invalid bool: %s\n", valueElems[idx].c_str());
+          exit(-1);
+        }
+      } else if (varType == "file") {
+        Json::Value subsettings;
+        initFile(valueElems[idx], &subsettings);
+        array[idx] = subsettings;
+      } else if (varType == "ref") {
+        Json::Path path(valueElems[idx]);
+        Json::Value& srcSetting = path.make(*_settings);
+        array[idx] = srcSetting;
       } else {
-        fprintf(stderr, "invalid bool: %s\n", valueStr.c_str());
+        fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
         exit(-1);
       }
-    } else if (varType == "file") {
-      Json::Value subsettings;
-      initFile(valueStr, &subsettings);
-      setting = subsettings;
-    } else if (varType == "ref") {
-      Json::Path path(valueStr);
-      Json::Value& srcSetting = path.make(*_settings);
-      setting = srcSetting;
+    }
+
+    // use the path to find the location and make update
+    Json::Path path(pathStr);
+    Json::Value& setting = path.make(*_settings);
+    if (!isArray) {
+      assert(array.size() == 1u);
+      setting = array[0];
     } else {
-      fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
-      exit(-1);
+      setting = array;
     }
 
     // perform insertion processing

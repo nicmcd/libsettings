@@ -8,10 +8,12 @@ SOURCE_BASE   := src
 #--------------------- External Libraries -------------------------------------#
 HEADER_DIRS   := \
 	../libprim/inc \
-	../libjson/inc
+	../libjson/inc \
+	../libstrop/inc
 STATIC_LIBS   := \
 	../libprim/bld/libprim.a \
 	../libjson/bld/libjson.a \
+	../libstrop/bld/libstrop.a
 
 #--------------------- Cpp Lint -----------------------------------------------#
 LINT          := $(HOME)/.makeccpp/cpplint/cpplint.py
