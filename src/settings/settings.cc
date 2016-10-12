@@ -226,9 +226,11 @@ static void applyUpdates(Json::Value* _settings,
     array.resize(valueElems.size());
     for (u32 idx = 0; idx < valueElems.size(); idx++) {
       if (varType == "int") {
-        array[idx] = Json::Value(std::stoll(valueElems[idx]));
+        const s64 val = std::stoll(valueElems[idx]);
+        array[idx] = Json::Value(val);
       } else if (varType == "uint") {
-        array[idx] = Json::Value(std::stoull(valueElems[idx]));
+        const u64 val = std::stoull(valueElems[idx]);
+        array[idx] = Json::Value(val);
       } else if (varType == "float") {
         array[idx] = Json::Value(std::stod(valueElems[idx]));
       } else if (varType == "string") {
