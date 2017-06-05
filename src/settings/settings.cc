@@ -52,7 +52,7 @@ static void processString(const std::string& _config, Json::Value* _settings,
 static void applyUpdates(Json::Value* _settings,
                          const std::vector<std::string>& _updates,
                          const std::string& _cwd = ".");
-static void processInsertions(const std::string& cwd, Json::Value* _settings);
+static void processInsertions(const std::string& _cwd, Json::Value* _settings);
 
 void initFile(const std::string& _configFile, Json::Value* _settings) {
   std::string base = basename(_configFile);
@@ -132,11 +132,21 @@ void usage(const char* _exe, const char* _error) {
       "              (see examples)\n"
       "  override  : a descriptor of a settings override\n"
       "              <path_description>=<type>=<value>\n"
-      "              type may be uint, float, string, or bool\n"
-      "              examples:\n"
+      "              type may be uint, float, string, bool, ref, file\n"
+      "\n"
+      "              ### simple examples ###\n"
       "              this.is.a.deep.path=uint=1200\n"
       "              important.values[3]=float=10.89\n"
       "              stats.logfile.compress=bool=false\n"
+      "\n"
+      "              ### complex examples ###\n"
+      "              some_setting=ref=some_other_setting\n"
+      "              my_array=int=[1,6,4,8,999]\n"
+      "              elsewhere_settings=file=\"somedir/somefile.json\"\n"
+      "\n"
+      "              ### really complex examples ###\n"
+      "              me=file=[a.json,b.json,c.json]\n"
+      "              you=ref=[me[2],me[0],me[1]]\n"
       "\n", _exe);
 }
 
@@ -159,7 +169,11 @@ static std::string dirname(const std::string& _path) {
 }
 
 static std::string join(const std::string& _a, const std::string& _b) {
-  return _a + '/' + _b;
+  if (_a.at(_a.size() - 1) != '/') {
+    return _a + '/' + _b;
+  } else {
+    return _a + _b;
+  }
 }
 
 static void processString(const std::string& _config, Json::Value* _settings,
@@ -273,7 +287,7 @@ static void applyUpdates(Json::Value* _settings,
   }
 }
 
-static void processInsertions(const std::string& cwd, Json::Value* _settings) {
+static void processInsertions(const std::string& _cwd, Json::Value* _settings) {
   // perform insertion processing via BFS
   std::queue<Json::Value*> queue;
   queue.push(_settings);
@@ -294,7 +308,7 @@ static void processInsertions(const std::string& cwd, Json::Value* _settings) {
 
           // parse the subsettings
           Json::Value subsettings;
-          initFile(join(cwd, filepath), &subsettings);
+          initFile(join(_cwd, filepath), &subsettings);
 
           // perform insertion based on reference type
           if (it.index() != Json::Value::UInt(-1)) {
