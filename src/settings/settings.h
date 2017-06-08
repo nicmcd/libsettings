@@ -39,10 +39,21 @@
 
 namespace settings {
 
+// this initializes the settings from a JSON file
+//  error print and exit(-1) upon failure
 void initFile(const std::string& _configFile, Json::Value* _settings);
-void initString(const std::string& _config, Json::Value* _settings);
-std::string toString(const Json::Value& _settings);
+
+// this initializes the settings from a JSON string
+//  error print and exit(-1) upon failure
+void initString(const std::string& _configStr, Json::Value* _settings);
+
+// this initializes the settings from a JSON file and settings updates
+//  pass the "-h" flag to see how to use
+//  error print and exit(-1) upon failure
 void commandLine(s32 _argc, const char* const* _argv, Json::Value* _settings);
+
+// this returns a string representation of the settings
+std::string toString(const Json::Value& _settings);
 
 }  // namespace settings
 

@@ -39,53 +39,70 @@
 #include <fstream>  // NOLINT
 #include <queue>
 #include <sstream>
+#include <stack>
+#include <unordered_set>
 
 namespace settings {
 
+// this defines the maximum amount of file inclusion depth allowed
+//  this is a block against infinite recursion
+static const u32 MAX_INCLUSION_DEPTH = 100;
+
+// this defines the maximum amount of references allowed
+//  this is used as an upper bound to detect infinite cycles
+static const u32 MAX_REFERENCES = 100000;
+
+// prints the usage ("-h" or "--help") message
 static void usage(const char* _exe, const char* _error);
+
+// utilities for filesystem path parsing
 static std::string basename(const std::string& _path);
 static std::string dirname(const std::string& _path);
 static std::string join(const std::string& _a, const std::string& _b);
-static void processString(const std::string& _config, Json::Value* _settings,
-                          const std::string& _filename = "",
-                          const std::string& _cwd = ".");
+
+// loads the JSON::Value represented in the file
+//  recursively performs file inclusion
+//  error print and exit(-1) upon failure
+static void fileToJson(const std::string& _config, Json::Value* _settings,
+                       u32 _recursionDepth);
+
+// loads the JSON::Value represented by the string
+//  recursively performs file inclusion
+//  error print and exit(-1) upon failure
+static void stringToJson(const std::string& _config, Json::Value* _settings,
+                         const std::string& _filename, const std::string& _cwd,
+                         u32 _recursionDepth);
+
+// this replaces "$$(...)$$" references with file JSON contents
+static void processInclusions(const std::string& _cwd, Json::Value* _settings,
+                              u32 _recursionDepth);
+
+// this replaces "$&(...)&$" reference with Json::Value contents
+static void processReferences(Json::Value* _settings);
+
+
+// this applies command line updates to the current settings
+//  this will perform inclusions but not references
 static void applyUpdates(Json::Value* _settings,
-                         const std::vector<std::string>& _updates,
-                         const std::string& _cwd = ".");
-static void processInsertions(const std::string& _cwd, Json::Value* _settings);
+                         const std::vector<std::string>& _updates);
+
+
+/*** public functions below here ***/
 
 void initFile(const std::string& _configFile, Json::Value* _settings) {
-  std::string base = basename(_configFile);
-  std::string dir = dirname(_configFile);
+  // parse the file into JSON
+  fileToJson(_configFile, _settings, 1);
 
-  // open a file stream
-  std::ifstream fin(_configFile);
-  if (!fin) {
-    fprintf(stderr, "Settings error: could not open file '%s'\n",
-            _configFile.c_str());
-    exit(-1);
-  }
+  // process all references
+  processReferences(_settings);
+}
 
-  // read in the file contents
-  std::stringstream inss;
-  inss << fin.rdbuf();
-  std::string raw = inss.str();
-
+void initString(const std::string& _configStr, Json::Value* _settings) {
   // parse the string into JSON
-  processString(raw, _settings, _configFile, dir);
+  stringToJson(_configStr, _settings, "", ".", 1);
 
-  return;
-}
-
-void initString(const std::string& _config, Json::Value* _settings) {
-  processString(_config, _settings);
-}
-
-std::string toString(const Json::Value& _settings) {
-  Json::StyledWriter writer;
-  std::stringstream ss;
-  ss << writer.write(_settings);
-  return ss.str();
+  // process all references
+  processReferences(_settings);
 }
 
 void commandLine(s32 _argc, const char* const* _argv,
@@ -106,9 +123,10 @@ void commandLine(s32 _argc, const char* const* _argv,
     usage(_argv[0], "Please specify a settings file\n");
     exit(-1);
   }
-  std::string settingsFile = _argv[1];
-  std::string dir = dirname(settingsFile);
-  initFile(settingsFile, _settings);
+  std::string configFile = _argv[1];
+
+  // parse the file into JSON
+  fileToJson(configFile, _settings, 1);
 
   // read in settings overrides
   std::vector<std::string> settingsUpdates;
@@ -117,12 +135,24 @@ void commandLine(s32 _argc, const char* const* _argv,
   }
 
   // apply settings overrides
-  applyUpdates(_settings, settingsUpdates, dir);
+  applyUpdates(_settings, settingsUpdates);
+
+  // process all references
+  processReferences(_settings);
 }
 
-void usage(const char* _exe, const char* _error) {
+std::string toString(const Json::Value& _settings) {
+  Json::StyledWriter writer;
+  std::stringstream ss;
+  ss << writer.write(_settings);
+  return ss.str();
+}
+
+/*** static functions below here ***/
+
+static void usage(const char* _exe, const char* _error) {
   if (_error != nullptr) {
-    printf("ERROR: %s\n", _error);
+    printf("Settings error: %s\n", _error);
   }
   printf(
       "usage:\n"
@@ -176,9 +206,38 @@ static std::string join(const std::string& _a, const std::string& _b) {
   }
 }
 
-static void processString(const std::string& _config, Json::Value* _settings,
-                          const std::string& _filename,
-                          const std::string& _cwd) {
+static void fileToJson(const std::string& _config, Json::Value* _settings,
+                       u32 _recursionDepth) {
+  assert(_recursionDepth <= MAX_INCLUSION_DEPTH);
+  if (_recursionDepth == MAX_INCLUSION_DEPTH) {
+    fprintf(stderr, "Settings error: max inclusion depth reached\n"
+            "You likely have an infinite file inclusion cycle\n");
+    exit(-1);
+  }
+
+  std::string dir = dirname(_config);
+
+  // open a file stream
+  std::ifstream fin(_config);
+  if (!fin) {
+    fprintf(stderr, "Settings error: could not open file '%s'\n",
+            _config.c_str());
+    exit(-1);
+  }
+
+  // read in the file contents
+  std::stringstream inss;
+  inss << fin.rdbuf();
+  std::string raw = inss.str();
+
+  // parse the string into JSON
+  stringToJson(raw, _settings, _config, dir, _recursionDepth);
+}
+
+
+static void stringToJson(const std::string& _config, Json::Value* _settings,
+                         const std::string& _filename, const std::string& _cwd,
+                         u32 _recursionDepth) {
   // parse the JSON string
   Json::Reader reader;
   bool success = reader.parse(_config.c_str(), *_settings, false);
@@ -186,22 +245,106 @@ static void processString(const std::string& _config, Json::Value* _settings,
   // if unsuccessful, report it
   if (!success) {
     if (_filename == "") {
-      fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
-              _config.c_str(), reader.getFormattedErrorMessages().c_str());
-    } else {
       fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
               _filename.c_str(), reader.getFormattedErrorMessages().c_str());
+    } else {
+      fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
+              _config.c_str(), reader.getFormattedErrorMessages().c_str());
     }
     exit(-1);
   }
 
-  // perform insertion processing
-  processInsertions(_cwd, _settings);
+  // perform JSON inclusions
+  processInclusions(_cwd, _settings, _recursionDepth);
+}
+
+static void processInclusions(const std::string& _cwd, Json::Value* _settings,
+                              u32 _recursionDepth) {
+  // perform inclusion processing via BFS
+  std::queue<Json::Value*> queue;
+  queue.push(_settings);
+
+  while (!queue.empty()) {
+    Json::Value* parent = queue.front();
+    queue.pop();
+    for (auto it = parent->begin(); it != parent->end(); ++it) {
+      Json::Value& child = *it;
+
+      // check if an insertion is needed
+      if (child.isString()) {
+        std::string chstr = child.asString();
+        if ((chstr.size() > 6) &&
+            (chstr.substr(0, 3) == "$$(") &&
+            (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
+          // extract the subsettings filepath
+          std::string filepath = chstr.substr(3, chstr.size() - 6);
+
+          // parse the subsettings
+          Json::Value subsettings;
+          fileToJson(join(_cwd, filepath), &subsettings, _recursionDepth + 1);
+
+          // perform insertion based on reference type
+          if (it.index() != Json::Value::UInt(-1)) {
+            // perform index insertion
+            (*parent)[it.index()] = subsettings;
+          } else {
+            // perform named member insertion
+            assert(it.name() != "");
+            (*parent)[it.name()] = subsettings;
+          }
+        }
+      }
+
+      // add item to queue
+      queue.push(&(*it));
+    }
+  }
+}
+
+static void processReferences(Json::Value* _settings) {
+  // perform reference processing via BFS
+  std::queue<Json::Value*> queue;
+  queue.push(_settings);
+
+  while (!queue.empty()) {
+    Json::Value* parent = queue.front();
+    queue.pop();
+    for (auto it = parent->begin(); it != parent->end(); ++it) {
+      Json::Value& child = *it;
+
+      // check if an insertion is needed
+      if (child.isString()) {
+        std::string chstr = child.asString();
+        if ((chstr.size() > 6) &&
+            (chstr.substr(0, 3) == "$&(") &&
+            (chstr.substr(chstr.size() - 3, 3) == ")&$")) {
+          // extract the settings path
+          std::string pathStr = chstr.substr(3, chstr.size() - 6);
+          Json::Path path(pathStr);
+
+          // get a reference to the settings that need copied
+          Json::Value& setting = path.make(*_settings);
+
+          // perform insertion based on reference type
+          if (it.index() != Json::Value::UInt(-1)) {
+            // perform index insertion
+            (*parent)[it.index()] = setting;
+          } else {
+            // perform named member insertion
+            assert(it.name() != "");
+            (*parent)[it.name()] = setting;
+          }
+        }
+      }
+
+      // add item to queue
+      queue.push(&(*it));
+    }
+  }
 }
 
 static void applyUpdates(Json::Value* _settings,
-                         const std::vector<std::string>& _updates,
-                         const std::string& _cwd) {
+                         const std::vector<std::string>& _updates) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
     // get the override string
     const std::string& override = *it;
@@ -212,7 +355,7 @@ static void applyUpdates(Json::Value* _settings,
     if ((equalsLoc == std::string::npos) ||
         (atSymLoc == std::string::npos) ||
         (atSymLoc <= equalsLoc + 1)) {
-      fprintf(stderr, "invalid setting override spec: %s\n",
+      fprintf(stderr, "Settings error: invalid setting override spec: %s\n",
               override.c_str());
       exit(-1);
     }
@@ -255,19 +398,20 @@ static void applyUpdates(Json::Value* _settings,
         } else if (valueElems[idx] == "false" || valueElems[idx] == "0") {
           array[idx] = Json::Value(false);
         } else {
-          fprintf(stderr, "invalid bool: %s\n", valueElems[idx].c_str());
+          fprintf(stderr, "Settings error: invalid bool: %s\n",
+                  valueElems[idx].c_str());
           exit(-1);
         }
       } else if (varType == "file") {
         Json::Value subsettings;
-        initFile(valueElems[idx], &subsettings);
+        fileToJson(valueElems[idx], &subsettings, 2);
         array[idx] = subsettings;
       } else if (varType == "ref") {
-        Json::Path path(valueElems[idx]);
-        Json::Value& srcSetting = path.make(*_settings);
-        array[idx] = srcSetting;
+        // just fake it as a string for now
+        array[idx] = "$&(" + valueElems[idx] + ")&$";
       } else {
-        fprintf(stderr, "invalid setting type: %s\n", varType.c_str());
+        fprintf(stderr, "Settings error: invalid setting type: %s\n",
+                varType.c_str());
         exit(-1);
       }
     }
@@ -280,69 +424,6 @@ static void applyUpdates(Json::Value* _settings,
       setting = array[0];
     } else {
       setting = array;
-    }
-
-    // perform insertion processing
-    processInsertions(_cwd, _settings);
-  }
-}
-
-static void processInsertions(const std::string& _cwd, Json::Value* _settings) {
-  // perform insertion processing via BFS
-  std::queue<Json::Value*> queue;
-  queue.push(_settings);
-  while (!queue.empty()) {
-    Json::Value* parent = queue.front();
-    queue.pop();
-    for (auto it = parent->begin(); it != parent->end(); ++it) {
-      Json::Value& child = *it;
-
-      // check if an insertion is needed
-      if (child.isString()) {
-        std::string chstr = child.asString();
-        if ((chstr.size() > 6) &&
-            (chstr.substr(0, 3) == "$$(") &&
-            (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
-          // extract the subsettings filepath
-          std::string filepath = chstr.substr(3, chstr.size() - 6);
-
-          // parse the subsettings
-          Json::Value subsettings;
-          initFile(join(_cwd, filepath), &subsettings);
-
-          // perform insertion based on reference type
-          if (it.index() != Json::Value::UInt(-1)) {
-            // perform index insertion
-            (*parent)[it.index()] = subsettings;
-          } else {
-            // perform named member insertion
-            assert(it.name() != "");
-            (*parent)[it.name()] = subsettings;
-          }
-        } else if ((chstr.size() > 6) &&
-                   (chstr.substr(0, 3) == "$&(") &&
-                   (chstr.substr(chstr.size() - 3, 3) == ")&$")) {
-          // extract the settings path
-          std::string pathStr = chstr.substr(3, chstr.size() - 6);
-          Json::Path path(pathStr);
-
-          // get a reference to the settings that need copied
-          Json::Value& setting = path.make(*_settings);
-
-          // perform insertion based on reference type
-          if (it.index() != Json::Value::UInt(-1)) {
-            // perform index insertion
-            (*parent)[it.index()] = setting;
-          } else {
-            // perform named member insertion
-            assert(it.name() != "");
-            (*parent)[it.name()] = setting;
-          }
-        }
-      }
-
-      // add item to queue
-      queue.push(&(*it));
     }
   }
 }
