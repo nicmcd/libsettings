@@ -33,6 +33,7 @@
 #include <strop/strop.h>
 
 #include <cassert>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 
@@ -84,8 +85,10 @@ static void processReferences(Json::Value* _settings);
 // this applies command line updates to the current settings
 //  this will perform inclusions but not references
 static void applyUpdates(Json::Value* _settings,
-                         const std::vector<std::string>& _updates);
+                         const std::vector<std::string>& _updates, bool _debug);
 
+// this is a debug printer utility for printing debug info
+static void dprintf(bool _debug, const char* _format, ...);
 
 /*** public functions below here ***/
 
@@ -109,33 +112,52 @@ void commandLine(s32 _argc, const char* const* _argv,
                  Json::Value* _settings) {
   assert(_argc > 0);
 
-  // scan for a -h or --help
-  for (s32 i = 1; i < _argc; i++) {
-    if ((strcmp(_argv[i], "-h") == 0) ||
-        (strcmp(_argv[i], "--help") == 0)) {
-      usage(_argv[0], nullptr);
-      exit(0);
+  // scan for:
+  //  -h or --help
+  //  -d or --debug
+  bool debug = false;
+  s32 first = 1;
+  for (s32 i = first; i < _argc; i++) {
+    // check for leading '-'
+    if (_argv[i][0] == '-') {
+      // check for help
+      if ((strcmp(_argv[i], "-h") == 0) ||
+          (strcmp(_argv[i], "--help") == 0)) {
+        usage(_argv[0], nullptr);
+        exit(0);
+      } else if ((strcmp(_argv[i], "-d") == 0) ||
+                 (strcmp(_argv[i], "--debug") == 0)) {
+        debug = true;
+      }
+      first++;
+    } else {
+      break;
     }
   }
+  dprintf(debug, "first non-flag location is %i\n", first);
 
   // create a settings object
-  if (_argc < 2) {
+  if (_argc <= first) {
     usage(_argv[0], "Please specify a settings file\n");
     exit(-1);
   }
-  std::string configFile = _argv[1];
+  std::string configFile = _argv[first];
 
   // parse the file into JSON
+  dprintf(debug, "beginning parsing of JSON file %s\n", configFile.c_str());
   fileToJson(configFile, _settings, 1);
+  dprintf(debug, "parsing of JSON file %s complete\n", configFile.c_str());
 
   // read in settings overrides
   std::vector<std::string> settingsUpdates;
-  for (s64 arg = 2; arg < _argc; arg++) {
-    settingsUpdates.push_back(std::string(_argv[arg]));
+  for (s64 arg = first + 1; arg < _argc; arg++) {
+    std::string update(_argv[arg]);
+    dprintf(debug, "adding update: %s\n", update.c_str());
+    settingsUpdates.push_back(update);
   }
 
   // apply settings overrides
-  applyUpdates(_settings, settingsUpdates);
+  applyUpdates(_settings, settingsUpdates, debug);
 
   // process all references
   processReferences(_settings);
@@ -344,10 +366,12 @@ static void processReferences(Json::Value* _settings) {
 }
 
 static void applyUpdates(Json::Value* _settings,
-                         const std::vector<std::string>& _updates) {
+                         const std::vector<std::string>& _updates,
+                         bool _debug) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
     // get the override string
     const std::string& override = *it;
+    dprintf(_debug, "applying update: %s\n", override.c_str());
 
     // split the override string into symbols
     size_t equalsLoc = override.find_first_of('=');
@@ -418,13 +442,32 @@ static void applyUpdates(Json::Value* _settings,
 
     // use the path to find the location and make update
     Json::Path path(pathStr);
-    Json::Value& setting = path.make(*_settings);
+    Json::Value* setting;
+    try {
+      setting = &path.make(*_settings);
+    } catch (Json::LogicError err) {
+      fprintf(stderr,
+              "Settings error: got logic error for '%s'\n"
+              "                %s\n",
+              pathStr.c_str(), err.what());
+      exit(-1);
+    }
     if (!isArray) {
       assert(array.size() == 1u);
-      setting = array[0];
+      *setting = array[0];
     } else {
-      setting = array;
+      *setting = array;
     }
+  }
+}
+
+void dprintf(bool _debug, const char* _format, ...) {
+  if (_debug) {
+    printf("Settings debug: ");
+    va_list args;
+    va_start(args, _format);
+    vprintf(_format, args);
+    va_end(args);
   }
 }
 
