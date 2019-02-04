@@ -408,10 +408,10 @@ static void applyUpdates(Json::Value* _settings,
     for (u32 idx = 0; idx < valueElems.size(); idx++) {
       if (varType == "int") {
         const s64 val = std::stoll(valueElems[idx]);
-        array[idx] = Json::Value(val);
+        array[idx] = Json::Value((Json::Int64)val);
       } else if (varType == "uint") {
         const u64 val = std::stoull(valueElems[idx]);
-        array[idx] = Json::Value(val);
+        array[idx] = Json::Value((Json::UInt64)val);
       } else if (varType == "float") {
         array[idx] = Json::Value(std::stod(valueElems[idx]));
       } else if (varType == "string") {
