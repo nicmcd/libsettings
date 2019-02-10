@@ -40,6 +40,7 @@
 #include <cstring>
 
 #include <fstream>  // NOLINT
+#include <memory>
 #include <queue>
 #include <sstream>
 #include <stack>
@@ -161,9 +162,13 @@ void commandLine(s32 _argc, const char* const* _argv,
 }
 
 std::string toString(const Json::Value& _settings) {
-  Json::StyledWriter writer;
+  Json::StreamWriterBuilder builder;
+  builder["commentStyle"] = "None";
+  builder["indentation"] = "  ";
+  std::unique_ptr<Json::StreamWriter> writer(
+      builder.newStreamWriter());
   std::stringstream ss;
-  ss << writer.write(_settings);
+  writer->write(_settings, &ss);
   return ss.str();
 }
 
@@ -252,17 +257,24 @@ static void stringToJson(const std::string& _config, Json::Value* _settings,
                          const std::string& _filename, const std::string& _cwd,
                          u32 _recursionDepth) {
   // parse the JSON string
-  Json::Reader reader;
-  bool success = reader.parse(_config.c_str(), *_settings, false);
+  Json::CharReaderBuilder builder;
+  builder["collectComments"] = false;
+  std::unique_ptr<Json::CharReader> reader(
+      builder.newCharReader());
+
+  std::string errors;
+  char const* cstr = _config.c_str();
+  bool success = reader->parse(cstr, cstr + _config.size(),
+                               _settings, &errors);
 
   // if unsuccessful, report it
   if (!success) {
     if (_filename == "") {
       fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
-              _filename.c_str(), reader.getFormattedErrorMessages().c_str());
+              _filename.c_str(), errors.c_str());
     } else {
       fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
-              _config.c_str(), reader.getFormattedErrorMessages().c_str());
+              _config.c_str(), errors.c_str());
     }
     exit(-1);
   }
