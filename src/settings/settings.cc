@@ -49,15 +49,10 @@ namespace settings {
 //  this is a block against infinite recursion
 static const u32 MAX_INCLUSION_DEPTH = 100;
 
-// this defines the maximum amount of references allowed
-//  this is used as an upper bound to detect infinite cycles
-static const u32 MAX_REFERENCES = 100000;
-
 // prints the usage ("-h" or "--help") message
 static void usage(const char* _exe, const char* _error);
 
 // utilities for filesystem path parsing
-static std::string basename(const std::string& _path);
 static std::string dirname(const std::string& _path);
 static std::string join(const std::string& _a, const std::string& _b);
 
@@ -200,15 +195,6 @@ static void usage(const char* _exe, const char* _error) {
       "              me=file=[a.json,b.json,c.json]\n"
       "              you=ref=[me[2],me[0],me[1]]\n"
       "\n", _exe);
-}
-
-static std::string basename(const std::string& _path) {
-  size_t idx = _path.find_last_of('/');
-  if (idx == std::string::npos) {
-    return _path;
-  } else {
-    return _path.substr(idx + 1);
-  }
 }
 
 static std::string dirname(const std::string& _path) {
@@ -443,13 +429,11 @@ static void applyUpdates(Json::Value* _settings,
     // use the path to find the location and make update
     Json::Path path(pathStr);
     Json::Value* setting;
-    try {
-      setting = &path.make(*_settings);
-    } catch (Json::LogicError err) {
+    setting = &path.make(*_settings);
+    if (setting == nullptr) {
       fprintf(stderr,
-              "Settings error: got logic error for '%s'\n"
-              "                %s\n",
-              pathStr.c_str(), err.what());
+              "Settings error: got logic error for '%s'\n",
+              pathStr.c_str());
       exit(-1);
     }
     if (!isArray) {
