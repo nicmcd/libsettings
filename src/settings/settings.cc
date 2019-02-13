@@ -30,6 +30,7 @@
  */
 #include "settings/settings.h"
 
+#include <fio/InFile.h>
 #include <strop/strop.h>
 
 #include <cassert>
@@ -225,18 +226,10 @@ static void fileToJson(const std::string& _config, Json::Value* _settings,
 
   std::string dir = dirname(_config);
 
-  // open a file stream
-  std::ifstream fin(_config);
-  if (!fin) {
-    fprintf(stderr, "Settings error: could not open file '%s'\n",
-            _config.c_str());
-    exit(-1);
-  }
-
-  // read in the file contents
-  std::stringstream inss;
-  inss << fin.rdbuf();
-  std::string raw = inss.str();
+  // read the file into a string
+  std::string raw;
+  fio::InFile::Status sts = fio::InFile::readFile(_config, &raw);
+  assert(sts == fio::InFile::Status::OK);
 
   // parse the string into JSON
   stringToJson(raw, _settings, _config, dir, _recursionDepth);
