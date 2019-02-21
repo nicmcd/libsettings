@@ -102,7 +102,7 @@ TEST(Settings, string) {
   Settings_TEST(settings);
 }
 
-TEST(Settings, file) {
+TEST(Settings, infile) {
   const char* filename = "TEST_settings.json";
   FILE* fp = fopen(filename, "w");
   assert(fp != NULL);
@@ -113,6 +113,24 @@ TEST(Settings, file) {
   settings::initFile(filename, &settings);
 
   Settings_TEST(settings);
+
+  assert(remove(filename) == 0);
+}
+
+TEST(Settings, outfile) {
+  const char* filename = "TEST_settings.json";
+
+  // get baseline json
+  Json::Value settingsA;
+  settings::initString(JSON, &settingsA);
+
+  // write the file
+  settings::writeToFile(settingsA, filename);
+
+  // read the file in and test it
+  Json::Value settingsB;
+  settings::initFile(filename, &settingsB);
+  Settings_TEST(settingsB);
 
   assert(remove(filename) == 0);
 }

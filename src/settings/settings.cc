@@ -31,6 +31,7 @@
 #include "settings/settings.h"
 
 #include <fio/InFile.h>
+#include <fio/OutFile.h>
 #include <strop/strop.h>
 
 #include <cassert>
@@ -164,6 +165,16 @@ std::string toString(const Json::Value& _settings) {
   std::stringstream ss;
   ss << writer.write(_settings);
   return ss.str();
+}
+
+void writeToFile(const Json::Value& _settings, const std::string& _configFile) {
+  std::string json = toString(_settings);
+  fio::OutFile::Status sts = fio::OutFile::writeFile(_configFile, json);
+  if (sts != fio::OutFile::Status::OK) {
+    fprintf(stderr, "Settings error: couldn't write to file %s\n",
+            _configFile.c_str());
+    exit(-1);
+  }
 }
 
 /*** static functions below here ***/

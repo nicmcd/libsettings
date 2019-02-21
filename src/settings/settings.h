@@ -55,6 +55,9 @@ void commandLine(s32 _argc, const char* const* _argv, Json::Value* _settings);
 // this returns a string representation of the settings
 std::string toString(const Json::Value& _settings);
 
+// writes settings to a file
+void writeToFile(const Json::Value& _settings, const std::string& _configFile);
+
 }  // namespace settings
 
 #endif  // SETTINGS_SETTINGS_H_
