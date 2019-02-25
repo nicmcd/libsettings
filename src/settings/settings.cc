@@ -240,6 +240,7 @@ static void fileToJson(const std::string& _config, Json::Value* _settings,
   // read the file into a string
   std::string raw;
   fio::InFile::Status sts = fio::InFile::readFile(_config, &raw);
+  (void)sts;  // unused
   assert(sts == fio::InFile::Status::OK);
 
   // parse the string into JSON
