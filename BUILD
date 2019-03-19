@@ -18,14 +18,14 @@ COPTS = [
 ]
 
 LIBS = [
-  "@libprim//:lib",
-  "@libstrop//:lib",
-  "@libfio//:lib",
-  "@jsoncpp//:lib",
+  "@libprim//:prim",
+  "@libstrop//:strop",
+  "@libfio//:fio",
+  "@jsoncpp//:jsoncpp",
 ]
 
 cc_library(
-  name = "lib",
+  name = "settings",
   srcs = glob(
     ["src/**/*.cc"],
     exclude = ["src/**/*_TEST*"],
@@ -57,7 +57,7 @@ cc_library(
   ]),
   copts = COPTS,
   deps = [
-    ":lib",
+    ":settings",
     "@googletest//:gtest_main",
   ] + LIBS,
   visibility = ["//visibility:private"],
@@ -65,7 +65,7 @@ cc_library(
 )
 
 cc_test(
-  name = "test",
+  name = "settings_test",
   copts = COPTS,
   deps = [
     ":test_lib",
