@@ -46,7 +46,7 @@ http_archive(
   build_file = "@jsoncpp_build//file:downloaded",
 )
 
-hash = "7be36de"
+hash = "6b56ef3"
 http_archive(
   name = "libprim",
   urls = ["https://github.com/nicmcd/libprim/tarball/" + hash],
@@ -54,7 +54,7 @@ http_archive(
   strip_prefix = "nicmcd-libprim-" + hash,
 )
 
-hash = "8994135"
+hash = "ad29c47"
 http_archive(
   name = "libstrop",
   urls = ["https://github.com/nicmcd/libstrop/tarball/" + hash],
@@ -62,7 +62,7 @@ http_archive(
   strip_prefix = "nicmcd-libstrop-" + hash,
 )
 
-hash = "ba51afc"
+hash = "528a0a3"
 http_archive(
   name = "libfio",
   urls = ["https://github.com/nicmcd/libfio/tarball/" + hash],
