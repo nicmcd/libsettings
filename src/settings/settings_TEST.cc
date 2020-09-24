@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <json/json.h>
+#include <nlohmann/json.hpp>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -60,48 +60,51 @@ const char* JSON =
     "  \"name\" : \"Nic\"\n"
     "}\n";
 
-void Settings_TEST(const Json::Value& settings) {
+void Settings_TEST(const nlohmann::json& _settings) {
   bool debug = false;
   if (debug) {
-    printf("%s\n", settings::toString(settings).c_str());
+    printf("%s\n", settings::toString(_settings).c_str());
   }
 
-  ASSERT_EQ(settings.size(), 3u);
+  ASSERT_EQ(_settings.size(), 3u);
 
-  Json::Value name = settings["name"];
-  ASSERT_EQ(name.size(), 0u);
-  ASSERT_EQ(name.asString(), "Nic");
+  nlohmann::json name = _settings["name"];
+  ASSERT_TRUE(name.is_string());
+  ASSERT_EQ(name.get<std::string>(), "Nic");
 
-  Json::Value age = settings["age"];
-  ASSERT_EQ(age.size(), 0u);
-  ASSERT_EQ(age.asUInt(), 30u);
+  nlohmann::json age = _settings["age"];
+  ASSERT_TRUE(age.is_number());
+  ASSERT_EQ(age.get<u64>(), 30u);
 
-  Json::Value family = settings["family"];
+  nlohmann::json family = _settings["family"];
+  ASSERT_TRUE(family.is_object());
   ASSERT_EQ(family.size(), 2u);
 
-  Json::Value wife = family["wife"];
-  ASSERT_EQ(wife.size(), 2u);
-  ASSERT_EQ(wife["name"].asString(), "Pamela");
-  ASSERT_EQ(wife["age"].asUInt(), 27u);
+  nlohmann::json wife = family["wife"];
+  ASSERT_TRUE(wife.is_object());
+  ASSERT_EQ(wife["name"].get<std::string>(), "Pamela");
+  ASSERT_EQ(wife["age"].get<u64>(), 27u);
 
-  Json::Value kids = family["kids"];
+  nlohmann::json kids = family["kids"];
+  ASSERT_TRUE(kids.is_array());
   ASSERT_EQ(kids.size(), 2u);
 
-  Json::Value kid0 = kids[0];
+  nlohmann::json kid0 = kids[0];
+  ASSERT_TRUE(kid0.is_object());
   ASSERT_EQ(kid0.size(), 2u);
-  ASSERT_EQ(kid0["name"].asString(), "Gertrude");
-  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+  ASSERT_EQ(kid0["name"].get<std::string>(), "Gertrude");
+  ASSERT_EQ(kid0["age"].get<u64>(), 3u);
 
-  Json::Value kid1 = kids[1];
+  nlohmann::json kid1 = kids[1];
+  ASSERT_TRUE(kid1.is_object());
   ASSERT_EQ(kid1.size(), 2u);
-  ASSERT_EQ(kid1["name"].asString(), "Mildrid");
-  ASSERT_EQ(kid1["age"].asUInt(), 0u);
+  ASSERT_EQ(kid1["name"].get<std::string>(), "Mildrid");
+  ASSERT_EQ(kid1["age"].get<u64>(), 0u);
 }
 
 TEST(Settings, string) {
-  Json::Value settings;
+  nlohmann::json settings;
   settings::initString(JSON, &settings);
-
   Settings_TEST(settings);
 }
 
@@ -112,7 +115,7 @@ TEST(Settings, infile) {
   fprintf(fp, "%s", JSON);
   fclose(fp);
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::initFile(filename, &settings);
 
   Settings_TEST(settings);
@@ -124,14 +127,14 @@ TEST(Settings, outfile) {
   const char* filename = "TEST_settings.json";
 
   // get baseline json
-  Json::Value settingsA;
+  nlohmann::json settingsA;
   settings::initString(JSON, &settingsA);
 
   // write the file
   settings::writeToFile(settingsA, filename);
 
   // read the file in and test it
-  Json::Value settingsB;
+  nlohmann::json settingsB;
   settings::initFile(filename, &settingsB);
   Settings_TEST(settingsB);
 
@@ -139,10 +142,10 @@ TEST(Settings, outfile) {
 }
 
 TEST(Settings, toString) {
-  Json::Value settings;
+  nlohmann::json settings;
   settings::initString(JSON, &settings);
   std::string jsonStr = settings::toString(settings);
-  printf("%s\n", jsonStr.c_str());
+  printf("%s", jsonStr.c_str());
 }
 
 TEST(Settings, commandLine1) {
@@ -156,26 +159,26 @@ TEST(Settings, commandLine1) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "family.kids[0].name=string=Krazy",
-    "family.wife.sexy=bool=true"
+    "/family/kids/0/name=string=Krazy",
+    "/family/wife/sexy=bool=true"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   // override #1
-  Json::Value kid0 = settings["family"]["kids"][0];
+  nlohmann::json kid0 = settings["family"]["kids"][0];
   ASSERT_EQ(kid0.size(), 2u);
-  ASSERT_EQ(kid0["name"].asString(), "Krazy");
-  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+  ASSERT_EQ(kid0["name"].get<std::string>(), "Krazy");
+  ASSERT_EQ(kid0["age"].get<u64>(), 3u);
 
   // override #2
-  Json::Value wife = settings["family"]["wife"];
+  nlohmann::json wife = settings["family"]["wife"];
   ASSERT_EQ(wife.size(), 3u);
-  ASSERT_EQ(wife["name"].asString(), "Pamela");
-  ASSERT_EQ(wife["age"].asUInt(), 27u);
-  ASSERT_TRUE(wife.isMember("sexy"));
-  ASSERT_EQ(wife["sexy"].asBool(), true);
+  ASSERT_EQ(wife["name"].get<std::string>(), "Pamela");
+  ASSERT_EQ(wife["age"].get<u64>(), 27u);
+  ASSERT_TRUE(wife.contains("sexy"));
+  ASSERT_EQ(wife["sexy"].get<bool>(), true);
 
   assert(remove(filename) == 0);
 }
@@ -193,7 +196,7 @@ TEST(Settings, commandLine2) {
     "TEST_settings.json"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   Settings_TEST(settings);
@@ -212,17 +215,17 @@ TEST(Settings, commandLine3) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "age=string=veryold",
-    "family.kids[1].name=string=Tuby",
-    "family.wife.age=int=-10"
+    "/age=string=veryold",
+    "/family/kids/1/name=string=Tuby",
+    "/family/wife/age=int=-10"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
-  ASSERT_EQ(settings["age"].asString(), "veryold");
-  ASSERT_EQ(settings["family"]["kids"][1]["name"].asString(), "Tuby");
-  ASSERT_EQ(settings["family"]["wife"]["age"].asInt(), -10);
+  ASSERT_EQ(settings["age"].get<std::string>(), "veryold");
+  ASSERT_EQ(settings["family"]["kids"][1]["name"].get<std::string>(), "Tuby");
+  ASSERT_EQ(settings["family"]["wife"]["age"].get<s32>(), -10);
 
   assert(remove(filename) == 0);
 }
@@ -252,10 +255,10 @@ TEST(Settings, subsettingsInitFile) {
   fprintf(dfp, "%s", "12345678");
   fclose(dfp);
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::initFile(afilename, &settings);
 
-  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].asUInt(), 12345678u);
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].get<u64>(), 12345678u);
 
   assert(remove(afilename) == 0);
   assert(remove(bfilename) == 0);
@@ -288,10 +291,10 @@ TEST(Settings, subsettingsInitString) {
   fprintf(dfp, "%s", "12345678");
   fclose(dfp);
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::initString("{\"top\": \"$$(TEST_asettings.json)$$\"}", &settings);
 
-  ASSERT_EQ(settings["top"]["sub"][2]["x"]["y"]["z"].asUInt(), 12345678u);
+  ASSERT_EQ(settings["top"]["sub"][2]["x"]["y"]["z"].get<u64>(), 12345678u);
 
   assert(remove(afilename) == 0);
   assert(remove(bfilename) == 0);
@@ -340,16 +343,16 @@ TEST(Settings, subsettingsCommandLine) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_asettings.json",
-    "toplevel=string=wahoo",
-    "sub[2].x.y.m=file=TEST_esettings.json"
+    "/toplevel=string=wahoo",
+    "/sub/2/x/y/m=file=TEST_esettings.json"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
-  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].asUInt(), 12345678u);
-  ASSERT_EQ(settings["toplevel"].asString(), "wahoo");
-  ASSERT_EQ(settings["sub"][2]["x"]["y"]["m"]["n"].asDouble(), 3.14159265359);
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["z"].get<u64>(), 12345678u);
+  ASSERT_EQ(settings["toplevel"].get<std::string>(), "wahoo");
+  ASSERT_EQ(settings["sub"][2]["x"]["y"]["m"]["n"].get<f64>(), 3.14159265359);
 
   assert(remove(afilename) == 0);
   assert(remove(bfilename) == 0);
@@ -359,7 +362,7 @@ TEST(Settings, subsettingsCommandLine) {
   assert(remove(ffilename) == 0);
 }
 
-TEST(Settings, referenceCommandline) {
+TEST(Settings, referenceCommandLine) {
   const char* filename = "TEST_settings.json";
   FILE* fp = fopen(filename, "w");
   assert(fp != NULL);
@@ -370,22 +373,22 @@ TEST(Settings, referenceCommandline) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "family.kids[0].name=ref=family.kids[1].name",
-    "copyofname=ref=name"
+    "/family/kids/0/name=ref=/family/kids/1/name",
+    "/copyofname=ref=/name"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   // override #1
-  Json::Value kid0 = settings["family"]["kids"][0];
+  nlohmann::json kid0 = settings["family"]["kids"][0];
   ASSERT_EQ(kid0.size(), 2u);
-  ASSERT_EQ(kid0["name"].asString(), "Mildrid");
-  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+  ASSERT_EQ(kid0["name"].get<std::string>(), "Mildrid");
+  ASSERT_EQ(kid0["age"].get<u64>(), 3u);
 
   // override #2
   ASSERT_EQ(settings["copyofname"], settings["name"]);
-  ASSERT_EQ(settings["copyofname"].asString(), "Nic");
+  ASSERT_EQ(settings["copyofname"].get<std::string>(), "Nic");
 
   assert(remove(filename) == 0);
 }
@@ -397,7 +400,7 @@ const char* JSON2 =
     "      \"kids\" : [\n"
     "         {\n"
     "            \"age\" : 3,\n"
-    "            \"name\" : \"$&(family.kids[1].name)&$\"\n"
+    "            \"name\" : \"$&(/family/kids/1/name)&$\"\n"
     "         },\n"
     "         {\n"
     "            \"age\" : 0,\n"
@@ -410,7 +413,7 @@ const char* JSON2 =
     "      }\n"
     "   },\n"
     "   \"name\" : \"Nic\"\n,"
-    "   \"copyofname\" : \"$&(name)&$\"\n"
+    "   \"copyofname\" : \"$&(/name)&$\"\n"
     "}\n";
 
 TEST(Settings, referenceInfile) {
@@ -426,18 +429,18 @@ TEST(Settings, referenceInfile) {
     "TEST_settings.json"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   // override #1
-  Json::Value kid0 = settings["family"]["kids"][0];
+  nlohmann::json kid0 = settings["family"]["kids"][0];
   ASSERT_EQ(kid0.size(), 2u);
-  ASSERT_EQ(kid0["name"].asString(), "Mildrid");
-  ASSERT_EQ(kid0["age"].asUInt(), 3u);
+  ASSERT_EQ(kid0["name"].get<std::string>(), "Mildrid");
+  ASSERT_EQ(kid0["age"].get<u64>(), 3u);
 
   // override #2
   ASSERT_EQ(settings["copyofname"], settings["name"]);
-  ASSERT_EQ(settings["copyofname"].asString(), "Nic");
+  ASSERT_EQ(settings["copyofname"].get<std::string>(), "Nic");
 
   assert(remove(filename) == 0);
 }
@@ -446,9 +449,9 @@ const char* JSON3 =
     "{\n"
     "   \"age\" : 30,\n"
     "   \"blah\" : {\n"
-    "     \"words\": \"$&(names)&$\"\n"
+    "     \"words\": \"$&(/names)&$\"\n"
     "   },\n"
-    "   \"names\" : [\"You\", \"$&(age)&$\", \"Them\"]\n"
+    "   \"names\" : [\"You\", \"$&(/age)&$\", \"Them\"]\n"
     "}\n";
 
 TEST(Settings, referenceTricky) {
@@ -462,25 +465,25 @@ TEST(Settings, referenceTricky) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "names[3]=int=987"
+    "/names/3=int=987"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   ASSERT_EQ(settings.size(), 3u);
   ASSERT_EQ(settings["blah"].size(), 1u);
   ASSERT_EQ(settings["blah"]["words"].size(), 4u);
-  ASSERT_TRUE(settings["blah"]["words"].isArray());
-  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
-  ASSERT_EQ(settings["blah"]["words"][1].asUInt(), 30u);
-  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
-  ASSERT_EQ(settings["blah"]["words"][3].asInt(), 987);
+  ASSERT_TRUE(settings["blah"]["words"].is_array());
+  ASSERT_EQ(settings["blah"]["words"][0].get<std::string>(), "You");
+  ASSERT_EQ(settings["blah"]["words"][1].get<u64>(), 30u);
+  ASSERT_EQ(settings["blah"]["words"][2].get<std::string>(), "Them");
+  ASSERT_EQ(settings["blah"]["words"][3].get<s32>(), 987);
   ASSERT_EQ(settings["names"].size(), 4u);
-  ASSERT_EQ(settings["names"][0].asString(), "You");
-  ASSERT_EQ(settings["names"][1].asUInt(), 30u);
-  ASSERT_EQ(settings["names"][2].asString(), "Them");
-  ASSERT_EQ(settings["names"][3].asInt(), 987);
+  ASSERT_EQ(settings["names"][0].get<std::string>(), "You");
+  ASSERT_EQ(settings["names"][1].get<u64>(), 30u);
+  ASSERT_EQ(settings["names"][2].get<std::string>(), "Them");
+  ASSERT_EQ(settings["names"][3].get<s32>(), 987);
 
   assert(remove(filename) == 0);
 }
@@ -496,21 +499,21 @@ TEST(Settings, commandlineArraySimple) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "age=string=[very,old]",
-    "family.wife.age=int=[-10]"
+    "/age=string=[very,old]",
+    "/family/wife/age=int=[-10]"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
-  ASSERT_TRUE(settings["age"].isArray());
+  ASSERT_TRUE(settings["age"].is_array());
   ASSERT_EQ(settings["age"].size(), 2u);
-  ASSERT_EQ(settings["age"][0].asString(), "very");
-  ASSERT_EQ(settings["age"][1].asString(), "old");
+  ASSERT_EQ(settings["age"][0].get<std::string>(), "very");
+  ASSERT_EQ(settings["age"][1].get<std::string>(), "old");
 
-  ASSERT_TRUE(settings["family"]["wife"]["age"].isArray());
+  ASSERT_TRUE(settings["family"]["wife"]["age"].is_array());
   ASSERT_EQ(settings["family"]["wife"]["age"].size(), 1u);
-  ASSERT_EQ(settings["family"]["wife"]["age"][0].asInt(), -10);
+  ASSERT_EQ(settings["family"]["wife"]["age"][0].get<s32>(), -10);
 
   assert(remove(filename) == 0);
 }
@@ -526,24 +529,24 @@ TEST(Settings, commandlineArrayWithTrickyReference) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "names[3]=int=987",
-    "age=ref=[names[3],names[0]]"
+    "/names/3=int=987",
+    "/age=ref=[/names/3,/names/0]"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   ASSERT_EQ(settings.size(), 3u);
   ASSERT_EQ(settings["blah"].size(), 1u);
   ASSERT_EQ(settings["blah"]["words"].size(), 4u);
-  ASSERT_TRUE(settings["blah"]["words"].isArray());
-  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
-  ASSERT_TRUE(settings["blah"]["words"][1].isArray());
+  ASSERT_TRUE(settings["blah"]["words"].is_array());
+  ASSERT_EQ(settings["blah"]["words"][0].get<std::string>(), "You");
+  ASSERT_TRUE(settings["blah"]["words"][1].is_array());
   ASSERT_EQ(settings["blah"]["words"][1].size(), 2u);
-  ASSERT_EQ(settings["blah"]["words"][1][0].asInt(), 987);
-  ASSERT_EQ(settings["blah"]["words"][1][1].asString(), "You");
-  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
-  ASSERT_EQ(settings["blah"]["words"][3].asInt(), 987);
+  ASSERT_EQ(settings["blah"]["words"][1][0].get<s32>(), 987);
+  ASSERT_EQ(settings["blah"]["words"][1][1].get<std::string>(), "You");
+  ASSERT_EQ(settings["blah"]["words"][2].get<std::string>(), "Them");
+  ASSERT_EQ(settings["blah"]["words"][3].get<s32>(), 987);
   ASSERT_EQ(settings["blah"]["words"], settings["names"]);
   ASSERT_EQ(settings["blah"]["words"][1], settings["age"]);
 
@@ -573,43 +576,43 @@ TEST(Settings, commandlineArrayWithTrickyFiles) {
   const char* argv[argc] = {
     "./path/to/some/binary",
     "TEST_settings.json",
-    "names[3]=int=987",
-    "age=file=[TEST_asettings.json,TEST_bsettings.json]"
+    "/names/3=int=987",
+    "/age=file=[TEST_asettings.json,TEST_bsettings.json]"
   };
 
-  Json::Value settings;
+  nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
 
   ASSERT_EQ(settings.size(), 3u);
 
-  ASSERT_TRUE(settings["age"].isArray());
+  ASSERT_TRUE(settings["age"].is_array());
   ASSERT_EQ(settings["age"].size(), 2u);
-  ASSERT_FALSE(settings["age"][0].isArray());
+  ASSERT_FALSE(settings["age"][0].is_array());
   ASSERT_EQ(settings["age"][0].size(), 2u);
-  ASSERT_EQ(settings["age"][0]["a"].asUInt(), 1u);
-  ASSERT_TRUE(settings["age"][0]["sub"].isArray());
+  ASSERT_EQ(settings["age"][0]["a"].get<u64>(), 1u);
+  ASSERT_TRUE(settings["age"][0]["sub"].is_array());
   ASSERT_EQ(settings["age"][0]["sub"].size(), 5u);
-  ASSERT_EQ(settings["age"][0]["sub"][0].asString(), "b");
-  ASSERT_EQ(settings["age"][0]["sub"][1].asBool(), false);
-  ASSERT_EQ(settings["age"][0]["sub"][2].asInt(), 12345678);
-  ASSERT_EQ(settings["age"][0]["sub"][3].asString(), "b");
-  ASSERT_EQ(settings["age"][0]["sub"][4].asUInt(), 1u);
-  ASSERT_TRUE(settings["age"][1].isArray());
+  ASSERT_EQ(settings["age"][0]["sub"][0].get<std::string>(), "b");
+  ASSERT_EQ(settings["age"][0]["sub"][1].get<bool>(), false);
+  ASSERT_EQ(settings["age"][0]["sub"][2].get<s32>(), 12345678);
+  ASSERT_EQ(settings["age"][0]["sub"][3].get<std::string>(), "b");
+  ASSERT_EQ(settings["age"][0]["sub"][4].get<u64>(), 1u);
+  ASSERT_TRUE(settings["age"][1].is_array());
   ASSERT_EQ(settings["age"][1].size(), 5u);
-  ASSERT_EQ(settings["age"][1][0].asString(), "b");
-  ASSERT_EQ(settings["age"][1][1].asBool(), false);
-  ASSERT_EQ(settings["age"][1][2].asInt(), 12345678);
-  ASSERT_EQ(settings["age"][1][3].asString(), "b");
-  ASSERT_EQ(settings["age"][1][4].asUInt(), 1u);
+  ASSERT_EQ(settings["age"][1][0].get<std::string>(), "b");
+  ASSERT_EQ(settings["age"][1][1].get<bool>(), false);
+  ASSERT_EQ(settings["age"][1][2].get<s32>(), 12345678);
+  ASSERT_EQ(settings["age"][1][3].get<std::string>(), "b");
+  ASSERT_EQ(settings["age"][1][4].get<u64>(), 1u);
 
   ASSERT_EQ(settings["blah"].size(), 1u);
   ASSERT_EQ(settings["blah"]["words"].size(), 4u);
-  ASSERT_TRUE(settings["blah"]["words"].isArray());
+  ASSERT_TRUE(settings["blah"]["words"].is_array());
   ASSERT_EQ(settings["blah"]["words"].size(), 4u);
-  ASSERT_EQ(settings["blah"]["words"][0].asString(), "You");
+  ASSERT_EQ(settings["blah"]["words"][0].get<std::string>(), "You");
   ASSERT_EQ(settings["blah"]["words"][1], settings["age"]);
-  ASSERT_EQ(settings["blah"]["words"][2].asString(), "Them");
-  ASSERT_EQ(settings["blah"]["words"][3].asInt(), 987);
+  ASSERT_EQ(settings["blah"]["words"][2].get<std::string>(), "Them");
+  ASSERT_EQ(settings["blah"]["words"][3].get<s32>(), 987);
 
   ASSERT_EQ(settings["names"], settings["blah"]["words"]);
 

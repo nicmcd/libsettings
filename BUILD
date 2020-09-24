@@ -13,7 +13,7 @@ LIBS = [
     "@libprim//:prim",
     "@libstrop//:strop",
     "@libfio//:fio",
-    "@jsoncpp//:jsoncpp",
+    "@nlohmann_json//:nlohmann_json",
 ]
 
 cc_library(

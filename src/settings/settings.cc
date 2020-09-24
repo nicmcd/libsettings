@@ -40,6 +40,7 @@
 #include <cstring>
 
 #include <fstream>  // NOLINT
+#include <iomanip>
 #include <memory>
 #include <queue>
 #include <sstream>
@@ -62,27 +63,27 @@ static std::string join(const std::string& _a, const std::string& _b);
 // loads the JSON::Value represented in the file
 //  recursively performs file inclusion
 //  error print and exit(-1) upon failure
-static void fileToJson(const std::string& _config, Json::Value* _settings,
+static void fileToJson(const std::string& _config, nlohmann::json* _settings,
                        u32 _recursionDepth);
 
 // loads the JSON::Value represented by the string
 //  recursively performs file inclusion
 //  error print and exit(-1) upon failure
-static void stringToJson(const std::string& _config, Json::Value* _settings,
+static void stringToJson(const std::string& _config, nlohmann::json* _settings,
                          const std::string& _filename, const std::string& _cwd,
                          u32 _recursionDepth);
 
 // this replaces "$$(...)$$" references with file JSON contents
-static void processInclusions(const std::string& _cwd, Json::Value* _settings,
+static void processInclusions(const std::string& _cwd, nlohmann::json* _settings,
                               u32 _recursionDepth);
 
-// this replaces "$&(...)&$" reference with Json::Value contents
-static void processReferences(Json::Value* _settings);
+// this replaces "$&(...)&$" reference with nlohmann::json contents
+static void processReferences(nlohmann::json* _settings);
 
 
 // this applies command line updates to the current settings
 //  this will perform inclusions but not references
-static void applyUpdates(Json::Value* _settings,
+static void applyUpdates(nlohmann::json* _settings,
                          const std::vector<std::string>& _updates, bool _debug);
 
 // this is a debug printer utility for printing debug info
@@ -90,7 +91,7 @@ static void dprintf(bool _debug, const char* _format, ...);
 
 /*** public functions below here ***/
 
-void initFile(const std::string& _configFile, Json::Value* _settings) {
+void initFile(const std::string& _configFile, nlohmann::json* _settings) {
   // parse the file into JSON
   fileToJson(_configFile, _settings, 1);
 
@@ -98,7 +99,7 @@ void initFile(const std::string& _configFile, Json::Value* _settings) {
   processReferences(_settings);
 }
 
-void initString(const std::string& _configStr, Json::Value* _settings) {
+void initString(const std::string& _configStr, nlohmann::json* _settings) {
   // parse the string into JSON
   stringToJson(_configStr, _settings, "", ".", 1);
 
@@ -107,7 +108,7 @@ void initString(const std::string& _configStr, Json::Value* _settings) {
 }
 
 void commandLine(s32 _argc, const char* const* _argv,
-                 Json::Value* _settings) {
+                 nlohmann::json* _settings) {
   assert(_argc > 0);
 
   // scan for:
@@ -146,7 +147,7 @@ void commandLine(s32 _argc, const char* const* _argv,
   fileToJson(configFile, _settings, 1);
   dprintf(debug, "parsing of JSON file %s complete\n", configFile.c_str());
 
-  // read in settings overrides
+  // read in settings updates
   std::vector<std::string> settingsUpdates;
   for (s64 arg = first + 1; arg < _argc; arg++) {
     std::string update(_argv[arg]);
@@ -154,27 +155,23 @@ void commandLine(s32 _argc, const char* const* _argv,
     settingsUpdates.push_back(update);
   }
 
-  // apply settings overrides
+  // apply settings updates
   applyUpdates(_settings, settingsUpdates, debug);
 
   // process all references
   processReferences(_settings);
 }
 
-std::string toString(const Json::Value& _settings) {
-  Json::StreamWriterBuilder builder;
-  builder["commentStyle"] = "None";
-  builder["indentation"] = "  ";
-  std::unique_ptr<Json::StreamWriter> writer(
-      builder.newStreamWriter());
-  std::stringstream ss;
-  writer->write(_settings, &ss);
+std::string toString(const nlohmann::json& _settings) {
+  std::ostringstream ss;
+  ss << std::setw(2) << _settings << std::endl;
   return ss.str();
 }
 
-void writeToFile(const Json::Value& _settings, const std::string& _configFile) {
-  std::string json = toString(_settings);
-  fio::OutFile::Status sts = fio::OutFile::writeFile(_configFile, json);
+void writeToFile(const nlohmann::json& _settings,
+                 const std::string& _configFile) {
+  std::string text = toString(_settings);
+  fio::OutFile::Status sts = fio::OutFile::writeFile(_configFile, text);
   if (sts != fio::OutFile::Status::OK) {
     fprintf(stderr, "Settings error: couldn't write to file %s\n",
             _configFile.c_str());
@@ -197,20 +194,21 @@ static void usage(const char* _exe, const char* _error) {
       "  override  : a descriptor of a settings override\n"
       "              <path_description>=<type>=<value>\n"
       "              type may be uint, float, string, bool, ref, file\n"
+      "              path descriptors follow RFC 6901\n"
       "\n"
       "              ### simple examples ###\n"
-      "              this.is.a.deep.path=uint=1200\n"
-      "              important.values[3]=float=10.89\n"
-      "              stats.logfile.compress=bool=false\n"
+      "              /this/is/a/deep/path=uint=1200\n"
+      "              /important/values/3=float=10.89\n"
+      "              /stats/logfile/compress=bool=false\n"
       "\n"
       "              ### complex examples ###\n"
-      "              some_setting=ref=some_other_setting\n"
-      "              my_array=int=[1,6,4,8,999]\n"
-      "              elsewhere_settings=file=\"somedir/somefile.json\"\n"
+      "              /some/setting=ref=/some/other/setting\n"
+      "              /my_array=int=[1,6,4,8,999]\n"
+      "              /elsewhere/settings=file=\"somedir/somefile.json\"\n"
       "\n"
       "              ### really complex examples ###\n"
-      "              me=file=[a.json,b.json,c.json]\n"
-      "              you=ref=[me[2],me[0],me[1]]\n"
+      "              /me=file=[a.json,b.json,c.json]\n"
+      "              /you=ref=[/me/2,/me/0,/me/1]\n"
       "\n", _exe);
 }
 
@@ -231,7 +229,7 @@ static std::string join(const std::string& _a, const std::string& _b) {
   }
 }
 
-static void fileToJson(const std::string& _config, Json::Value* _settings,
+static void fileToJson(const std::string& _config, nlohmann::json* _settings,
                        u32 _recursionDepth) {
   assert(_recursionDepth <= MAX_INCLUSION_DEPTH);
   if (_recursionDepth == MAX_INCLUSION_DEPTH) {
@@ -243,37 +241,28 @@ static void fileToJson(const std::string& _config, Json::Value* _settings,
   std::string dir = dirname(_config);
 
   // read the file into a string
-  std::string raw;
-  fio::InFile::Status sts = fio::InFile::readFile(_config, &raw);
+  std::string text;
+  fio::InFile::Status sts = fio::InFile::readFile(_config, &text);
   assert(sts == fio::InFile::Status::OK);
 
   // parse the string into JSON
-  stringToJson(raw, _settings, _config, dir, _recursionDepth);
+  stringToJson(text, _settings, _config, dir, _recursionDepth);
 }
 
 
-static void stringToJson(const std::string& _config, Json::Value* _settings,
+static void stringToJson(const std::string& _config, nlohmann::json* _settings,
                          const std::string& _filename, const std::string& _cwd,
                          u32 _recursionDepth) {
   // parse the JSON string
-  Json::CharReaderBuilder builder;
-  builder["collectComments"] = false;
-  std::unique_ptr<Json::CharReader> reader(
-      builder.newCharReader());
-
-  std::string errors;
-  char const* cstr = _config.c_str();
-  bool success = reader->parse(cstr, cstr + _config.size(),
-                               _settings, &errors);
-
-  // if unsuccessful, report it
-  if (!success) {
+  try {
+    *(_settings) = nlohmann::json::parse(_config);
+  } catch (nlohmann::json::parse_error& e) {
     if (_filename == "") {
       fprintf(stderr, "Settings error: failed to parse JSON file:%s\n%s",
-              _filename.c_str(), errors.c_str());
+              _filename.c_str(), e.what());
     } else {
       fprintf(stderr, "Settings error: failed to parse JSON string:\n%s\n%s",
-              _config.c_str(), errors.c_str());
+              _config.c_str(), e.what());
     }
     exit(-1);
   }
@@ -282,21 +271,21 @@ static void stringToJson(const std::string& _config, Json::Value* _settings,
   processInclusions(_cwd, _settings, _recursionDepth);
 }
 
-static void processInclusions(const std::string& _cwd, Json::Value* _settings,
-                              u32 _recursionDepth) {
+static void processInclusions(
+    const std::string& _cwd, nlohmann::json* _settings, u32 _recursionDepth) {
   // perform inclusion processing via BFS
-  std::queue<Json::Value*> queue;
+  std::queue<nlohmann::json*> queue;
   queue.push(_settings);
 
   while (!queue.empty()) {
-    Json::Value* parent = queue.front();
+    nlohmann::json* parent = queue.front();
     queue.pop();
-    for (auto it = parent->begin(); it != parent->end(); ++it) {
-      Json::Value& child = *it;
+    for (auto& item : parent->items()) {
+      nlohmann::json& child = item.value();
 
       // check if an insertion is needed
-      if (child.isString()) {
-        std::string chstr = child.asString();
+      if (child.is_string()) {
+        std::string chstr = child.get<std::string>();
         if ((chstr.size() > 6) &&
             (chstr.substr(0, 3) == "$$(") &&
             (chstr.substr(chstr.size() - 3, 3) == ")$$")) {
@@ -304,92 +293,86 @@ static void processInclusions(const std::string& _cwd, Json::Value* _settings,
           std::string filepath = chstr.substr(3, chstr.size() - 6);
 
           // parse the subsettings
-          Json::Value subsettings;
+          nlohmann::json subsettings;
           fileToJson(join(_cwd, filepath), &subsettings, _recursionDepth + 1);
 
-          // perform insertion based on reference type
-          if (it.index() != Json::Value::UInt(-1)) {
-            // perform index insertion
-            (*parent)[it.index()] = subsettings;
-          } else {
-            // perform named member insertion
-            assert(it.name() != "");
-            (*parent)[it.name()] = subsettings;
-          }
+          // perform insertion
+          child = subsettings;
         }
       }
 
       // add item to queue
-      queue.push(&(*it));
+      if (&child != parent) {
+        queue.push(&child);
+      }
     }
   }
 }
 
-static void processReferences(Json::Value* _settings) {
+static void processReferences(nlohmann::json* _settings) {
   // perform reference processing via BFS
-  std::queue<Json::Value*> queue;
+  std::queue<nlohmann::json*> queue;
   queue.push(_settings);
 
   while (!queue.empty()) {
-    Json::Value* parent = queue.front();
+    nlohmann::json* parent = queue.front();
     queue.pop();
-    for (auto it = parent->begin(); it != parent->end(); ++it) {
-      Json::Value& child = *it;
+    for (auto& item : parent->items()) {
+      nlohmann::json& child = item.value();
 
       // check if an insertion is needed
-      if (child.isString()) {
-        std::string chstr = child.asString();
+      if (child.is_string()) {
+        std::string chstr = child.get<std::string>();
         if ((chstr.size() > 6) &&
             (chstr.substr(0, 3) == "$&(") &&
             (chstr.substr(chstr.size() - 3, 3) == ")&$")) {
           // extract the settings path
           std::string pathStr = chstr.substr(3, chstr.size() - 6);
-          Json::Path path(pathStr);
-
-          // get a reference to the settings that need copied
-          Json::Value& setting = path.make(*_settings);
-
-          // perform insertion based on reference type
-          if (it.index() != Json::Value::UInt(-1)) {
-            // perform index insertion
-            (*parent)[it.index()] = setting;
-          } else {
-            // perform named member insertion
-            assert(it.name() != "");
-            (*parent)[it.name()] = setting;
+          nlohmann::json::json_pointer ptr;
+          try {
+            ptr = nlohmann::json::json_pointer(pathStr);
+          } catch(nlohmann::json::parse_error& e) {
+            printf("Pointer specification \"%s\" caused a failure\n:%s\n",
+                   pathStr.c_str(), e.what());
+            exit(-1);
           }
+
+          // perform insertion
+          child = (*_settings)[ptr];
         }
       }
 
       // add item to queue
-      queue.push(&(*it));
+      if (&child != parent) {
+        queue.push(&child);
+      }
     }
   }
 }
 
-static void applyUpdates(Json::Value* _settings,
+static void applyUpdates(nlohmann::json* _settings,
                          const std::vector<std::string>& _updates,
                          bool _debug) {
   for (auto it = _updates.cbegin(); it != _updates.cend(); ++it) {
-    // get the override string
-    const std::string& override = *it;
-    dprintf(_debug, "applying update: %s\n", override.c_str());
+    // get the update string
+    const std::string& update = *it;
+    dprintf(_debug, "applying update: %s\n", update.c_str());
 
-    // split the override string into symbols
-    size_t equalsLoc = override.find_first_of('=');
-    size_t atSymLoc = override.find_last_of('=');
+    // split the update string into symbols
+    size_t equalsLoc = update.find_first_of('=');
+    size_t atSymLoc = update.find_last_of('=');
     if ((equalsLoc == std::string::npos) ||
         (atSymLoc == std::string::npos) ||
         (atSymLoc <= equalsLoc + 1)) {
-      fprintf(stderr, "Settings error: invalid setting override spec: %s\n",
-              override.c_str());
+      fprintf(stderr, "Settings error: invalid setting update spec: %s\n",
+              update.c_str());
       exit(-1);
     }
 
-    std::string pathStr = override.substr(0, equalsLoc);
-    std::string varType = override.substr(equalsLoc + 1,
-                                          atSymLoc - equalsLoc - 1);
-    std::string valueStr = override.substr(atSymLoc + 1);
+    std::string pathStr = update.substr(0, equalsLoc);
+    std::string varType = update.substr(equalsLoc + 1,
+                                        atSymLoc - equalsLoc - 1);
+    std::string valueStr = update.substr(atSymLoc + 1);
 
     // determine if the value is an array type
     bool isArray = ((valueStr.at(0) == '[') &&
@@ -404,32 +387,32 @@ static void applyUpdates(Json::Value* _settings,
       valueElems = strop::split(valueStr, ',');
     }
 
-    // convert all strings to a Json::Value array
-    Json::Value array(Json::ValueType::arrayValue);
-    array.resize(valueElems.size());
+    // convert all strings to a nlohmann::json array
+    std::vector<nlohmann::json> array(valueElems.size());
     for (u32 idx = 0; idx < valueElems.size(); idx++) {
       if (varType == "int") {
         const s64 val = std::stoll(valueElems[idx]);
-        array[idx] = Json::Value((Json::Int64)val);
+        array[idx] = val;
       } else if (varType == "uint") {
         const u64 val = std::stoull(valueElems[idx]);
-        array[idx] = Json::Value((Json::UInt64)val);
+        array[idx] = val;
       } else if (varType == "float") {
-        array[idx] = Json::Value(std::stod(valueElems[idx]));
+        const f64 val = std::stod(valueElems[idx]);
+        array[idx] = val;
       } else if (varType == "string") {
-        array[idx] = Json::Value(valueElems[idx]);
+        array[idx] = valueElems[idx];
       } else if (varType == "bool") {
         if (valueElems[idx] == "true" || valueElems[idx] == "1") {
-          array[idx] = Json::Value(true);
+          array[idx] = true;
         } else if (valueElems[idx] == "false" || valueElems[idx] == "0") {
-          array[idx] = Json::Value(false);
+          array[idx] = false;
         } else {
           fprintf(stderr, "Settings error: invalid bool: %s\n",
                   valueElems[idx].c_str());
           exit(-1);
         }
       } else if (varType == "file") {
-        Json::Value subsettings;
+        nlohmann::json subsettings;
         fileToJson(valueElems[idx], &subsettings, 2);
         array[idx] = subsettings;
       } else if (varType == "ref") {
@@ -442,21 +425,22 @@ static void applyUpdates(Json::Value* _settings,
       }
     }
 
-    // use the path to find the location and make update
-    Json::Path path(pathStr);
-    Json::Value* setting;
-    setting = &path.make(*_settings);
-    if (setting == nullptr) {
-      fprintf(stderr,
-              "Settings error: got logic error for '%s'\n",
-              pathStr.c_str());
+    // use the path to find the location
+    nlohmann::json::json_pointer ptr;
+    try {
+      ptr = nlohmann::json::json_pointer(pathStr);
+    } catch(nlohmann::json::parse_error& e) {
+      printf("Pointer specification \"%s\" caused a failure\n:%s\n",
+             pathStr.c_str(), e.what());
       exit(-1);
     }
+
+    // make the update
     if (!isArray) {
       assert(array.size() == 1u);
-      *setting = array[0];
+      (*_settings)[ptr] = array[0];
     } else {
-      *setting = array;
+      (*_settings)[ptr] = array;
     }
   }
 }
