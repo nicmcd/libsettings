@@ -31,21 +31,21 @@
 #ifndef SETTINGS_SETTINGS_H_
 #define SETTINGS_SETTINGS_H_
 
-#include <nlohmann/json.hpp>
-#include <prim/prim.h>
-
 #include <string>
 #include <vector>
+
+#include "nlohmann/json.hpp"
+#include "prim/prim.h"
 
 namespace settings {
 
 // this initializes the settings from a JSON file
 //  error print and exit(-1) upon failure
-void initFile(const std::string& _configFile, nlohmann::json* _settings);
+void initFile(const std::string& _config_file, nlohmann::json* _settings);
 
 // this initializes the settings from a JSON string
 //  error print and exit(-1) upon failure
-void initString(const std::string& _configStr, nlohmann::json* _settings);
+void initString(const std::string& _config_str, nlohmann::json* _settings);
 
 // this initializes the settings from a JSON file and settings updates
 //  pass the "-h" flag to see how to use
@@ -58,7 +58,7 @@ std::string toString(const nlohmann::json& _settings);
 
 // writes settings to a file
 void writeToFile(const nlohmann::json& _settings,
-                 const std::string& _configFile);
+                 const std::string& _config_file);
 
 }  // namespace settings
 

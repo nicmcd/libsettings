@@ -28,12 +28,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <nlohmann/json.hpp>
-#include <gtest/gtest.h>
+#include "settings/settings.h"
 
 #include <string>
 
-#include "settings/settings.h"
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
 
 const char* JSON =
     "{\n"
@@ -156,12 +156,9 @@ TEST(Settings, commandLine1) {
   fclose(fp);
 
   const int argc = 4;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/family/kids/0/name=string=Krazy",
-    "/family/wife/sexy=bool=true"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json",
+                            "/family/kids/0/name=string=Krazy",
+                            "/family/wife/sexy=bool=true"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -191,10 +188,7 @@ TEST(Settings, commandLine2) {
   fclose(fp);
 
   const int argc = 2;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -213,12 +207,8 @@ TEST(Settings, commandLine3) {
 
   const int argc = 5;
   const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/age=string=veryold",
-    "/family/kids/1/name=string=Tuby",
-    "/family/wife/age=int=-10"
-  };
+      "./path/to/some/binary", "TEST_settings.json", "/age=string=veryold",
+      "/family/kids/1/name=string=Tuby", "/family/wife/age=int=-10"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -340,12 +330,9 @@ TEST(Settings, subsettingsCommandLine) {
   fclose(ffp);
 
   const int argc = 4;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_asettings.json",
-    "/toplevel=string=wahoo",
-    "/sub/2/x/y/m=file=TEST_esettings.json"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_asettings.json",
+                            "/toplevel=string=wahoo",
+                            "/sub/2/x/y/m=file=TEST_esettings.json"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -370,12 +357,9 @@ TEST(Settings, referenceCommandLine) {
   fclose(fp);
 
   const int argc = 4;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/family/kids/0/name=ref=/family/kids/1/name",
-    "/copyofname=ref=/name"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json",
+                            "/family/kids/0/name=ref=/family/kids/1/name",
+                            "/copyofname=ref=/name"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -424,10 +408,7 @@ TEST(Settings, referenceInfile) {
   fclose(fp);
 
   const int argc = 2;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -462,11 +443,8 @@ TEST(Settings, referenceTricky) {
   fclose(fp);
 
   const int argc = 3;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/names/3=int=987"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json",
+                            "/names/3=int=987"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -496,12 +474,9 @@ TEST(Settings, commandlineArraySimple) {
   fclose(fp);
 
   const int argc = 4;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/age=string=[very,old]",
-    "/family/wife/age=int=[-10]"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json",
+                            "/age=string=[very,old]",
+                            "/family/wife/age=int=[-10]"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -526,12 +501,8 @@ TEST(Settings, commandlineArrayWithTrickyReference) {
   fclose(fp);
 
   const int argc = 4;
-  const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/names/3=int=987",
-    "/age=ref=[/names/3,/names/0]"
-  };
+  const char* argv[argc] = {"./path/to/some/binary", "TEST_settings.json",
+                            "/names/3=int=987", "/age=ref=[/names/3,/names/0]"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);
@@ -574,11 +545,8 @@ TEST(Settings, commandlineArrayWithTrickyFiles) {
 
   const int argc = 4;
   const char* argv[argc] = {
-    "./path/to/some/binary",
-    "TEST_settings.json",
-    "/names/3=int=987",
-    "/age=file=[TEST_asettings.json,TEST_bsettings.json]"
-  };
+      "./path/to/some/binary", "TEST_settings.json", "/names/3=int=987",
+      "/age=file=[TEST_asettings.json,TEST_bsettings.json]"};
 
   nlohmann::json settings;
   settings::commandLine(argc, argv, &settings);

@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
-release = "1.8.1"
+release = "1.10.0"
 http_archive(
   name = "googletest",
   urls = ["https://github.com/google/googletest/archive/release-" + release + ".tar.gz"],
@@ -12,12 +12,17 @@ http_file(
   urls = ["https://raw.githubusercontent.com/nicmcd/pkgbuild/master/cpplint.BUILD"],
 )
 
-release = "1.3.0"
+release = "1.5.4"
 http_archive(
   name = "cpplint",
   urls = ["https://github.com/cpplint/cpplint/archive/" + release + ".tar.gz"],
   strip_prefix = "cpplint-" + release,
   build_file = "@cpplint_build//file:downloaded",
+)
+
+http_file(
+  name = "clang_format",
+  urls = ["https://raw.githubusercontent.com/nicmcd/pkgbuild/master/clang-format"],
 )
 
 http_file(
@@ -46,7 +51,7 @@ http_archive(
     build_file = "@nlohmann_json_build//file:downloaded",
 )
 
-hash = "6b56ef3"
+hash = "6783002"
 http_archive(
   name = "libprim",
   urls = ["https://github.com/nicmcd/libprim/tarball/" + hash],
@@ -54,7 +59,7 @@ http_archive(
   strip_prefix = "nicmcd-libprim-" + hash,
 )
 
-hash = "ad29c47"
+hash = "84ad83a"
 http_archive(
   name = "libstrop",
   urls = ["https://github.com/nicmcd/libstrop/tarball/" + hash],
@@ -62,7 +67,7 @@ http_archive(
   strip_prefix = "nicmcd-libstrop-" + hash,
 )
 
-hash = "528a0a3"
+hash = "670b381"
 http_archive(
   name = "libfio",
   urls = ["https://github.com/nicmcd/libfio/tarball/" + hash],
