@@ -1,18 +1,25 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(libsettings)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # nlohmann_json
-find_library(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
-if(NLOHMANN_JSON_PC MATCHES "NOTFOUND")
-  message(FATAL_ERROR "nlohmann_json.pc not found")
-endif()
-string(REPLACE lib/pkgconfig/nlohmann_json.pc include/ NLOHMANN_JSON_INC ${NLOHMANN_JSON_PC})
-if(NOT EXISTS ${NLOHMANN_JSON_INC})
-  message(FATAL_ERROR "nlohmann_json include dir doesn't exist")
-endif()
+find_package(nlohmann_json REQUIRED)
+get_target_property(
+  _loc
+  nlohmann_json::nlohmann_json
+  INTERFACE_INCLUDE_DIRECTORIES
+  )
+message(FATAL_ERROR "Found nlohmann_json: ${_loc} (found version ${nlohmann_json_VERSION})")
+#find_library(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
+#if(NLOHMANN_JSON_PC MATCHES "NOTFOUND")
+#  message(FATAL_ERROR "nlohmann_json.pc not found")
+#endif()
+#string(REPLACE lib/pkgconfig/nlohmann_json.pc include/ NLOHMANN_JSON_INC ${NLOHMANN_JSON_PC})
+#if(NOT EXISTS ${NLOHMANN_JSON_INC})
+#  message(FATAL_ERROR "nlohmann_json include dir doesn't exist")
+#endif()
 
 # zlib
 find_library(ZLIB_A NAMES libz.a PATHS ${CMAKE_INSTALL_RPATH})
