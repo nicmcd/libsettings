@@ -23,21 +23,14 @@ if(NOT EXISTS ${ZLIB_INC})
 endif()
 
 # libprim
-find_package(libprim REQUIRED)
-get_target_property(
-  LIBPRIM_INC
-  libprim::libprim
-  INTERFACE_INCLUDE_DIRECTORIES
-  )
-
 find_library(LIBPRIM_A NAMES libprim.a PATHS ${CMAKE_INSTALL_RPATH})
 if(LIBPRIM_A MATCHES "NOTFOUND")
   message(FATAL_ERROR "libprim.a not found")
 endif()
-#string(REPLACE lib/libprim.a include/ LIBPRIM_INC ${LIBPRIM_A})
-#if(NOT EXISTS ${LIBPRIM_INC})
-#  message(FATAL_ERROR "libprim include dir doesn't exist")
-#endif()
+string(REPLACE lib/libprim.a include/ LIBPRIM_INC ${LIBPRIM_A})
+if(NOT EXISTS ${LIBPRIM_INC})
+  message(FATAL_ERROR "libprim include dir doesn't exist")
+endif()
 
 # libstrop
 find_library(LIBSTROP_A NAMES libstrop.a PATHS ${CMAKE_INSTALL_RPATH})
