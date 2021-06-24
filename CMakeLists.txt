@@ -7,11 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # nlohmann_json
 find_package(nlohmann_json REQUIRED)
 get_target_property(
-  _loc
+  NLOHMANN_JSON_INC
   nlohmann_json::nlohmann_json
   INTERFACE_INCLUDE_DIRECTORIES
   )
-message(FATAL_ERROR "Found nlohmann_json: ${_loc} (found version ${nlohmann_json_VERSION})")
 #find_library(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
 #if(NLOHMANN_JSON_PC MATCHES "NOTFOUND")
 #  message(FATAL_ERROR "nlohmann_json.pc not found")
@@ -89,7 +88,6 @@ target_include_directories(
 target_link_libraries(
   settings
   ${ZLIB_A}
-  ${NLOHMANN_JSON_A}
   ${LIBPRIM_A}
   ${LIBSTROP_A}
   ${LIBFIO_A}
