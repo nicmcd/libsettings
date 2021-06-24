@@ -11,14 +11,6 @@ get_target_property(
   nlohmann_json::nlohmann_json
   INTERFACE_INCLUDE_DIRECTORIES
   )
-#find_library(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
-#if(NLOHMANN_JSON_PC MATCHES "NOTFOUND")
-#  message(FATAL_ERROR "nlohmann_json.pc not found")
-#endif()
-#string(REPLACE lib/pkgconfig/nlohmann_json.pc include/ NLOHMANN_JSON_INC ${NLOHMANN_JSON_PC})
-#if(NOT EXISTS ${NLOHMANN_JSON_INC})
-#  message(FATAL_ERROR "nlohmann_json include dir doesn't exist")
-#endif()
 
 # zlib
 find_library(ZLIB_A NAMES libz.a PATHS ${CMAKE_INSTALL_RPATH})
@@ -31,14 +23,21 @@ if(NOT EXISTS ${ZLIB_INC})
 endif()
 
 # libprim
+find_package(libprim REQUIRED)
+get_target_property(
+  LIBPRIM_INC
+  libprim::libprim
+  INTERFACE_INCLUDE_DIRECTORIES
+  )
+
 find_library(LIBPRIM_A NAMES libprim.a PATHS ${CMAKE_INSTALL_RPATH})
 if(LIBPRIM_A MATCHES "NOTFOUND")
   message(FATAL_ERROR "libprim.a not found")
 endif()
-string(REPLACE lib/libprim.a include/ LIBPRIM_INC ${LIBPRIM_A})
-if(NOT EXISTS ${LIBPRIM_INC})
-  message(FATAL_ERROR "libprim include dir doesn't exist")
-endif()
+#string(REPLACE lib/libprim.a include/ LIBPRIM_INC ${LIBPRIM_A})
+#if(NOT EXISTS ${LIBPRIM_INC})
+#  message(FATAL_ERROR "libprim include dir doesn't exist")
+#endif()
 
 # libstrop
 find_library(LIBSTROP_A NAMES libstrop.a PATHS ${CMAKE_INSTALL_RPATH})
