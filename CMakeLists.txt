@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # nlohmann_json
-find_file(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
+find_library(NLOHMANN_JSON_PC NAMES nlohmann_json.pc PATHS ${CMAKE_PREFIX_PATH})
 if(NLOHMANN_JSON_PC MATCHES "NOTFOUND")
   message(FATAL_ERROR "nlohmann_json.pc not found")
 endif()
