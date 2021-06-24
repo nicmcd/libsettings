@@ -1,0 +1,14 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}/@CMAKE_INSTALL_LIBEXECDIR@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+datarootdir = ${prefix}/@CMAKE_INSTALL_DATAROOTDIR@
+datadir=${prefix}/@CMAKE_INSTALL_DATADIR@
+
+Name: libsettings
+Description: A library for using JSON settings files and command lines in C++
+URL: https://github.com/nicmcd/libsettings
+Version: 0.1.0
+Requires: zlib,nlohmann_json,libprim,libstrop,libfio
+Libs: -L${libdir} -lsettings 
+Cflags: -I${includedir}
