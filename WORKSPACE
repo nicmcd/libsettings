@@ -51,7 +51,7 @@ http_archive(
     build_file = "@nlohmann_json_build//file:downloaded",
 )
 
-hash = "ef2951d"
+hash = "f564c5c"
 http_archive(
   name = "libprim",
   urls = ["https://github.com/nicmcd/libprim/tarball/" + hash],
@@ -59,7 +59,7 @@ http_archive(
   strip_prefix = "nicmcd-libprim-" + hash,
 )
 
-hash = "bf6c19f"
+hash = "ee4a54f"
 http_archive(
   name = "libstrop",
   urls = ["https://github.com/nicmcd/libstrop/tarball/" + hash],
